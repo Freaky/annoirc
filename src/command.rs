@@ -163,7 +163,7 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> 
 
     let fragment = Html::parse_document(&buf);
     let title_selector = Selector::parse(r#"title"#).unwrap();
-    let description_selector = Selector::parse(r#"meta[name="description"], meta[name="og:description"], meta[name="twitter:description"]"#).unwrap();
+    let description_selector = Selector::parse(r#"meta[name="description"], meta[name="twitter:description"], meta[property="og:description"]"#).unwrap();
 
     let title = fragment
         .select(&title_selector)

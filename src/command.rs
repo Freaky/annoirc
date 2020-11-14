@@ -36,7 +36,7 @@ pub struct Response {
     pub ts: Instant,
 }
 
-pub static USER_AGENT: &str = concat!("Mozilla/5.0 annobot", "/", env!("CARGO_PKG_VERSION"),);
+pub static USER_AGENT: &str = concat!("Mozilla/5.0 annobot", "/", env!("CARGO_PKG_VERSION"));
 
 #[derive(Clone, Debug)]
 pub struct CommandHandler {

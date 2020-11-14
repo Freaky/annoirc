@@ -2,15 +2,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use anyhow::{anyhow, Error};
 use egg_mode::tweet;
 use futures::channel::oneshot;
 use futures::future::Shared;
 use futures::prelude::*;
-use lazy_static::lazy_static;
-use leaky_bucket::LeakyBucket;
-use regex::Regex;
 use scraper::{Html, Selector};
-use slog::{info, o, warn};
 use url::Url;
 
 use crate::config::*;
@@ -35,7 +32,7 @@ pub enum Info {
 
 #[derive(Clone, Debug)]
 pub struct Response {
-    pub info: Shared<oneshot::Receiver<Arc<Result<Info, anyhow::Error>>>>,
+    pub info: Shared<oneshot::Receiver<Arc<Result<Info, Error>>>>,
     pub ts: Instant,
 }
 
@@ -66,7 +63,7 @@ impl CommandHandler {
     pub fn spawn(
         &self,
         command: BotCommand,
-    ) -> Shared<oneshot::Receiver<Arc<Result<Info, anyhow::Error>>>> {
+    ) -> Shared<oneshot::Receiver<Arc<Result<Info, Error>>>> {
         let mut cache = self.cache.lock().unwrap();
 
         // TODO: run this periodically and make the cache configurable
@@ -109,7 +106,7 @@ async fn handle_url(
     client: reqwest::Client,
     config: Arc<BotConfig>,
     url: Url,
-) -> Result<Info, anyhow::Error> {
+) -> Result<Info, Error> {
     if let Some(token) = &config.twitter.bearer_token {
         if let Some("twitter.com") = url.host_str() {
             let token = egg_mode::auth::Token::Bearer(token.to_string());
@@ -129,18 +126,18 @@ async fn handle_url(
 }
 
 // TODO: Rate limit handling
-async fn fetch_tweet(token: egg_mode::auth::Token, id: u64) -> Result<tweet::Tweet, anyhow::Error> {
+async fn fetch_tweet(token: egg_mode::auth::Token, id: u64) -> Result<tweet::Tweet, Error> {
     Ok(egg_mode::tweet::show(id, &token).await?.response)
 }
 
 async fn fetch_tweeter(
     token: egg_mode::auth::Token,
     id: &str,
-) -> Result<egg_mode::user::TwitterUser, anyhow::Error> {
+) -> Result<egg_mode::user::TwitterUser, Error> {
     Ok(egg_mode::user::show(id.to_string(), &token).await?.response)
 }
 
-async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, anyhow::Error> {
+async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> {
     let mut res = client.get(url).send().await?;
 
     if res
@@ -148,7 +145,7 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, anyhow:
         .map(|addr| !ip_rfc::global(&addr.ip()))
         .unwrap_or_default()
     {
-        return Err(anyhow::anyhow!("Restricted IP"));
+        return Err(anyhow!("Restricted IP"));
     }
 
     let limit = 256 * 1024;
@@ -172,7 +169,7 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, anyhow:
         .select(&title_selector)
         .next()
         .map(|n| n.text().collect::<String>())
-        .ok_or_else(|| anyhow::anyhow!("No title"))?;
+        .ok_or_else(|| anyhow!("No title"))?;
 
     let desc = fragment
         .select(&description_selector)

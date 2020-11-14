@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use irc::client::prelude::Config;
 use serde::{Deserialize, Serialize};
-use slog::{error, info, o, Logger};
+use slog::{error, info, Logger};
 use tokio::sync::watch;
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]

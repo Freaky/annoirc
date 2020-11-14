@@ -65,7 +65,6 @@ async fn main() -> Result<(), Error> {
 
         tokio::select! {
             conf = config_update.next(), if active => {
-                info!(log, "RECONF");
                 if let Some(conf) = conf {
                     config = conf;
                 } else {

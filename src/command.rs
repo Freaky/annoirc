@@ -162,8 +162,8 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> 
     let buf = String::from_utf8_lossy(&buf);
 
     let fragment = Html::parse_document(&buf);
-    let title_selector = Selector::parse("title").unwrap();
-    let description_selector = Selector::parse(r#"meta[name="description"]"#).unwrap();
+    let title_selector = Selector::parse(r#"title"#).unwrap();
+    let description_selector = Selector::parse(r#"meta[name="description"], meta[name="og:description"], meta[name="twitter:description"]"#).unwrap();
 
     let title = fragment
         .select(&title_selector)
@@ -175,11 +175,12 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> 
         .select(&description_selector)
         .next()
         .and_then(|n| n.value().attr("content"))
-        .map(html_escape::decode_html_entities);
+        .map(html_escape::decode_html_entities)
+        .map(|s| s.to_string());
 
     Ok(UrlInfo {
         url: res.url().clone(),
         title,
-        desc: desc.map(|s| s.to_string()),
+        desc,
     })
 }

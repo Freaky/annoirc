@@ -74,10 +74,7 @@ impl BotConfig {
 
 impl ConfigMonitor {
     /// Begin monitoring the specified configuration file, if it exists
-    pub async fn watch<P: Into<PathBuf>>(
-        log: Logger,
-        path: P,
-    ) -> Result<ConfigMonitor, Error> {
+    pub async fn watch<P: Into<PathBuf>>(log: Logger, path: P) -> Result<ConfigMonitor, Error> {
         let path = path.into();
 
         let config = BotConfig::load(&path).await?;

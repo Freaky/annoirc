@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Error};
@@ -21,7 +20,7 @@ pub async fn irc_instance(
     log: Logger,
     handler: CommandHandler,
     name: String,
-    config_update: tokio::sync::watch::Receiver<Arc<BotConfig>>,
+    config_update: ConfigMonitor,
 ) {
     loop {
         match irc_connect(log.clone(), handler.clone(), &name, config_update.clone()).await {
@@ -45,9 +44,9 @@ async fn irc_connect(
     log: Logger,
     handler: CommandHandler,
     name: &str,
-    mut config_update: tokio::sync::watch::Receiver<Arc<BotConfig>>,
+    mut config_update: ConfigMonitor,
 ) -> Result<bool, Error> {
-    let config = config_update.borrow().clone();
+    let config = config_update.current();
 
     let netconf = config
         .network
@@ -66,7 +65,7 @@ async fn irc_connect(
 
     loop {
         tokio::select! {
-            _newconf = config_update.recv() => {
+            _newconf = config_update.next(), if !quitting => {
                 let _ = client.send_quit("Disconnecting");
                 quitting = true;
             },

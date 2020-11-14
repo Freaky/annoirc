@@ -40,13 +40,13 @@ pub static USER_AGENT: &str = concat!("Mozilla/5.0 annobot", "/", env!("CARGO_PK
 
 #[derive(Clone, Debug)]
 pub struct CommandHandler {
-    config: tokio::sync::watch::Receiver<Arc<BotConfig>>,
+    config: ConfigMonitor,
     client: reqwest::Client,
     cache: Arc<Mutex<HashMap<BotCommand, Response>>>,
 }
 
 impl CommandHandler {
-    pub fn new(config: tokio::sync::watch::Receiver<Arc<BotConfig>>) -> Self {
+    pub fn new(config: ConfigMonitor) -> Self {
         Self {
             config,
             client: reqwest::ClientBuilder::new()
@@ -88,7 +88,7 @@ impl CommandHandler {
         );
 
         let client = self.client.clone();
-        let config = self.config.borrow().clone();
+        let config = self.config.current();
 
         tokio::spawn(async move {
             let res = match command {

@@ -32,27 +32,30 @@ async fn main() -> Result<(), Error> {
 
     info!(log, "startup"; "version" => env!("CARGO_PKG_VERSION"), "config" => args.config.display());
 
-    let mut config_update = BotConfig::watch(
+    let mut config_update = ConfigMonitor::watch(
         log.new(o!("config" => args.config.display().to_string())),
         &args.config,
     )
     .await?;
-    let mut config = config_update.recv().await.unwrap();
+    let mut config = config_update.current();
 
     let handler = CommandHandler::new(config_update.clone());
     let mut connections = StreamMap::new();
+    let mut active = true;
 
     loop {
-        for (netname, _) in &config.network {
-            if !connections.contains_key(netname) {
-                info!(log, "spawn"; "name" => netname);
-                let name = netname.clone();
-                let cu = config_update.clone();
-                let newlog = log.new(o!("network" => name.clone()));
-                connections.insert(
-                    netname.clone(),
-                    tokio::spawn(irc_instance(newlog, handler.clone(), name, cu)).into_stream(),
-                );
+        if active {
+            for (netname, _) in &config.network {
+                if !connections.contains_key(netname) {
+                    info!(log, "spawn"; "name" => netname);
+                    let name = netname.clone();
+                    let cu = config_update.clone();
+                    let newlog = log.new(o!("network" => name.clone()));
+                    connections.insert(
+                        netname.clone(),
+                        tokio::spawn(irc_instance(newlog, handler.clone(), name, cu)).into_stream(),
+                    );
+                }
             }
         }
 
@@ -61,8 +64,13 @@ async fn main() -> Result<(), Error> {
         }
 
         tokio::select! {
-            Some(conf) = config_update.recv() => {
-                config = conf;
+            conf = config_update.next(), if active => {
+                info!(log, "RECONF");
+                if let Some(conf) = conf {
+                    config = conf;
+                } else {
+                    active = false;
+                }
             },
             Some((network, connection)) = connections.next() => {
                 info!(log, "close"; "network" => &network, "result" => ?connection);

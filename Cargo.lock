@@ -76,6 +76,7 @@ dependencies = [
  "tera",
  "tokio",
  "toml",
+ "unicode-segmentation",
  "url",
 ]
 

@@ -244,11 +244,15 @@ fn sanitize(text: &str, max_bytes: usize) -> String {
     let text = WHITESPACE.replace_all(text, " ");
     let text = CONTROL.replace_all(&text, "");
 
-    // Avoid cutting codepoints in half
-    text.char_indices()
-        .take_while(|(idx, c)| *idx + c.len_utf8() <= max_bytes)
-        .map(|(_, c)| c)
-        .collect()
+    // Avoid cutting graphemes in half
+    use unicode_segmentation::UnicodeSegmentation;
+    text.grapheme_indices(true)
+        .map(|(i, c)| i + c.len())
+        .take_while(|i| *i <= max_bytes)
+        .last()
+        .map(|i| &text[..i])
+        .unwrap_or(&text)
+        .to_string()
 }
 
 fn parse_url(text: &str) -> Result<Url, url::ParseError> {

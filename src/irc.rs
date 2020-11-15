@@ -5,11 +5,13 @@ use egg_mode::tweet;
 use egg_mode_text::url_entities;
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
+use governor::{Quota, RateLimiter};
 use irc::client::prelude::*;
 use itertools::Itertools;
 use lazy_static::lazy_static;
+use nonzero_ext::*;
 use regex::Regex;
-use slog::{error, info, o, Logger};
+use slog::{error, info, o, warn, Logger};
 use tokio::stream::StreamExt;
 use url::Url;
 
@@ -62,6 +64,8 @@ async fn irc_connect(
 
     let mut stream = client.stream()?;
     let mut pending = FuturesUnordered::new();
+    let quota = Quota::per_minute(nonzero!(10u32)); // Max of 10 per minute per channel
+    let limiter = RateLimiter::keyed(quota);
 
     loop {
         tokio::select! {
@@ -98,8 +102,14 @@ async fn irc_connect(
                             for url in url_entities(&content)
                                 .into_iter()
                                 .filter_map(|url| parse_url(url.substr(content)).ok())
+                                .take(config.http.max_per_message as usize)
                                 .unique()
                                 {
+                                if let Err(_) = limiter.check_key(&target.clone()) {
+                                    warn!(log, "ratelimit"; "channel" => target, "nick" => nick);
+                                    break;
+                                }
+
                                 let urlstr = url.to_string();
                                 let cmd = BotCommand::Url(url);
                                 let sender = client.sender();

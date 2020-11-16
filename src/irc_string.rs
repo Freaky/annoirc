@@ -37,20 +37,31 @@ impl std::ops::Deref for IrcString {
     }
 }
 
+/// Collapse all whitespace, strip control codes and obvious combining character abuse,
+/// And truncate to a given size, appending a unicode ellipsis if appropriate.
+/// Will overshoot max_bytes by 3 because of that.
 pub fn sanitize(text: &str, max_bytes: usize) -> String {
     lazy_static! {
-        // Collapse any whitespace to a single space
-        static ref WHITESPACE: Regex = Regex::new(r"\s+").unwrap();
-
-        // Strip control codes and multiple combining chars
         static ref CONTROL: Regex = Regex::new(r"\pC|(?:\pM{2})\pM+").unwrap();
     }
 
-    let text = text.trim();
-    let text = WHITESPACE.replace_all(&text, " ");
-    let text = CONTROL.replace_all(&text, "");
+    let text = join(text.split_whitespace().map(|s| CONTROL.replace_all(&s, "")), " ");
 
     truncate(&text, max_bytes).to_string()
+}
+
+#[test]
+fn vaguely_test_sanitize() {
+    let tests = vec![
+        (" foo  bar  baz ", "foo bar baz"),
+        ("foo\nbar\tbaz", "foo bar baz"),
+        ("Z̡̢̖͛̍ͫ̂̚͜A̸̶̡̩͖͉̟̞̺ͨ̎̓ͭ̇̂Ḻ̵͋́̃͝͡G̪̹͌̋ͅǪ̖̐ͭ̑!͚͙͈̐͢", "ZALGO!"),
+        ("0123456789abcdefghijklm", "0123456789abcdef…")
+    ];
+
+    for (src, tgt) in tests {
+        assert_eq!(sanitize(src, 16), tgt);
+    }
 }
 
 fn truncate<'a>(s: &'a str, max_bytes: usize) -> MaybeTruncated<'a> {

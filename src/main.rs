@@ -10,6 +10,7 @@ mod command;
 mod config;
 mod irc;
 mod irc_string;
+mod twitter;
 
 use crate::{command::*, config::*, irc::*};
 

@@ -53,6 +53,7 @@ name = "annoirc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "egg-mode",
  "egg-mode-text",
@@ -64,6 +65,7 @@ dependencies = [
  "itertools",
  "lazy_static 1.4.0",
  "log",
+ "mime",
  "nonzero_ext",
  "regex 1.4.2",
  "reqwest",
@@ -1984,6 +1986,7 @@ dependencies = [
  "pin-project-lite",
  "rustls 0.18.1",
  "serde",
+ "serde_json",
  "serde_urlencoded",
  "time 0.2.22",
  "tokio",

@@ -1,21 +1,18 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Error};
-use egg_mode::tweet;
 use egg_mode_text::url_entities;
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use governor::{Quota, RateLimiter};
 use irc::client::prelude::*;
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use nonzero_ext::*;
-use regex::Regex;
 use slog::{error, info, o, warn, Logger};
 use tokio::stream::StreamExt;
 use url::Url;
 
-use crate::{command::*, config::*, irc_string::*};
+use crate::{command::*, config::*, irc_string::*, twitter::*};
 
 pub async fn irc_instance(
     log: Logger,
@@ -142,13 +139,13 @@ async fn irc_connect(
                                                 &target,
                                                 format_tweet(tweet)
                                             );
-                                            if let Some(quote) = &tweet.quoted_status {
+                                            if let Some(quote) = &tweet.quote {
                                                 let _ = sender.send_privmsg(
                                                     &target,
                                                     format_tweet(quote)
                                                 );
                                             }
-                                            if let Some(retweet) = &tweet.retweeted_status {
+                                            if let Some(retweet) = &tweet.retweet {
                                                 let _ = sender.send_privmsg(
                                                     &target,
                                                     format_tweet(retweet)
@@ -184,46 +181,46 @@ async fn irc_connect(
     Ok(quitting)
 }
 
-fn format_tweet(tweet: &tweet::Tweet) -> String {
+fn format_tweet(tweet: &Tweet) -> String {
     // not included if retrieved from a user status field
     if let Some(user) = &tweet.user {
         format!(
             "[\x0303Twitter\x0f] \x0304\x02\x02{}\x0f{} (@{}) \x0300\x02\x02{}\x0f | {} {}",
-            sanitize(&user.name, 30),
+            user.name.trunc(30),
             if user.verified { "✓" } else { "" },
-            sanitize(&user.screen_name, 30),
-            sanitize(&tweet.text, 300),
-            if tweet.favorite_count == 0 {
+            user.screen_name.trunc(30),
+            tweet.text.trunc(300),
+            if tweet.favourite_count == 0 {
                 "".to_string()
             } else {
-                format!("❤️{}", tweet.favorite_count)
+                format!("❤️{}", tweet.favourite_count)
             },
             tweet.created_at.format("%F %H:%M")
         )
     } else {
         format!(
             "[\x0303Twitter\x0f] \x0300\x02\x02{}\x0f | {} {}",
-            sanitize(&tweet.text, 300),
-            if tweet.favorite_count == 0 {
+            tweet.text.trunc(300),
+            if tweet.favourite_count == 0 {
                 "".to_string()
             } else {
-                format!("❤️{}", tweet.favorite_count)
+                format!("❤️{}", tweet.favourite_count)
             },
             tweet.created_at.format("%F %H:%M")
         )
     }
 }
 
-fn format_tweeter(user: &egg_mode::user::TwitterUser) -> String {
+fn format_tweeter(user: &Tweeter) -> String {
     format!(
         "[\x0303Twitter\x0f] \x0304\x02\x02{}\x0f{} (@{}) {} Tweets, {} Followers, {}{}",
-        sanitize(&user.name, 30),
+        user.name.trunc(30),
         if user.verified { "✓" } else { "" },
-        sanitize(&user.screen_name, 30),
+        user.screen_name.trunc(30),
         user.statuses_count,
         user.followers_count,
         if let Some(ref desc) = user.description {
-            format!("\"\x0300\x02\x02{}\x0f\", ", sanitize(desc, 300))
+            format!("\"\x0300\x02\x02{}\x0f\", ", desc.trunc(300))
         } else {
             "".to_string()
         },

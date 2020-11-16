@@ -3,14 +3,13 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Error};
-use egg_mode::tweet;
 use futures::channel::oneshot;
 use futures::future::Shared;
 use futures::prelude::*;
 use scraper::{Html, Selector};
 use url::Url;
 
-use crate::{config::*, irc_string::*};
+use crate::{config::*, irc_string::*, twitter::*};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
@@ -24,11 +23,12 @@ pub enum BotCommand {
     Url(Url),
 }
 
+// Consider Boxing these, or moving the Arc internally
 #[derive(Clone, Debug)]
 pub enum Info {
     Url(UrlInfo), // A final Url after redirects and a title string
-    Tweet(tweet::Tweet),
-    Tweeter(egg_mode::user::TwitterUser),
+    Tweet(Tweet),
+    Tweeter(Tweeter),
 }
 
 #[derive(Clone, Debug)]
@@ -43,12 +43,14 @@ pub static USER_AGENT: &str = concat!("Mozilla/5.0 annobot", "/", env!("CARGO_PK
 pub struct CommandHandler {
     config: ConfigMonitor,
     client: reqwest::Client,
+    twitter: TwitterHandler,
     cache: Arc<Mutex<HashMap<BotCommand, Response>>>,
 }
 
 impl CommandHandler {
     pub fn new(config: ConfigMonitor) -> Self {
         Self {
+            twitter: TwitterHandler::new(config.clone()),
             config,
             client: reqwest::ClientBuilder::new()
                 .cookie_store(true)
@@ -90,12 +92,11 @@ impl CommandHandler {
             },
         );
 
-        let client = self.client.clone();
-        let config = self.config.current();
+        let handler = self.clone();
 
         tokio::spawn(async move {
             let res = match command {
-                BotCommand::Url(url) => handle_url(client, config, url).await,
+                BotCommand::Url(url) => handler.handle_url(url).await,
             };
 
             tx.send(Arc::new(res))
@@ -103,42 +104,27 @@ impl CommandHandler {
 
         rx
     }
-}
 
-async fn handle_url(
-    client: reqwest::Client,
-    config: Arc<BotConfig>,
-    url: Url,
-) -> Result<Info, Error> {
-    if let Some(token) = &config.twitter.bearer_token {
-        if let Some("twitter.com") = url.host_str() {
-            let token = egg_mode::auth::Token::Bearer(token.to_string());
-            if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
-                if path.len() == 1 {
-                    return fetch_tweeter(token, &path[0]).await.map(Info::Tweeter);
-                } else if path.len() == 3 && path[1] == "status" {
-                    if let Ok(id) = path[2].parse::<u64>() {
-                        return fetch_tweet(token, id).await.map(Info::Tweet);
+    async fn handle_url(
+        &self,
+        url: Url,
+    ) -> Result<Info, Error> {
+        if self.config.current().twitter.bearer_token.is_some() {
+            if let Some("twitter.com") = url.host_str() {
+                if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
+                    if path.len() == 1 {
+                        return self.twitter.fetch_tweeter(&path[0]).await.map(Info::Tweeter);
+                    } else if path.len() == 3 && path[1] == "status" {
+                        if let Ok(id) = path[2].parse::<u64>() {
+                            return self.twitter.fetch_tweet(id).await.map(Info::Tweet);
+                        }
                     }
                 }
             }
         }
+
+        fetch_url(self.client.clone(), url).await.map(Info::Url)
     }
-
-    fetch_url(client, url).await.map(Info::Url)
-}
-
-// TODO: Rate limit handling
-// Replace t.com redirections with original URLs via UrlEntities if they're not too long
-async fn fetch_tweet(token: egg_mode::auth::Token, id: u64) -> Result<tweet::Tweet, Error> {
-    Ok(egg_mode::tweet::show(id, &token).await?.response)
-}
-
-async fn fetch_tweeter(
-    token: egg_mode::auth::Token,
-    id: &str,
-) -> Result<egg_mode::user::TwitterUser, Error> {
-    Ok(egg_mode::user::show(id.to_string(), &token).await?.response)
 }
 
 async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> {

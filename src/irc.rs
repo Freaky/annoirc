@@ -15,8 +15,7 @@ use slog::{error, info, o, warn, Logger};
 use tokio::stream::StreamExt;
 use url::Url;
 
-use crate::command::*;
-use crate::config::*;
+use crate::{command::*, config::*, irc_string::*};
 
 pub async fn irc_instance(
     log: Logger,
@@ -94,7 +93,7 @@ async fn irc_connect(
                     }
                     Command::PRIVMSG(target, content) => {
                         if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
-                            if nick == client.current_nickname() || content.starts_with("\x01") || !netconf.channels.contains(&target) {
+                            if nick == client.current_nickname() || content.starts_with('\x01') || !netconf.channels.contains(&target) {
                                 continue;
                             }
 
@@ -105,7 +104,7 @@ async fn irc_connect(
                                 .take(config.http.max_per_message as usize)
                                 .unique()
                                 {
-                                if let Err(_) = limiter.check_key(&target.clone()) {
+                                if limiter.check_key(&target.clone()).is_err() {
                                     warn!(log, "ratelimit"; "channel" => target, "nick" => nick);
                                     break;
                                 }
@@ -124,7 +123,7 @@ async fn irc_connect(
                                                 format!(
                                                     "[\x0303\x02\x02{}\x0f] \x0300\x02\x02{}\x0f",
                                                     sanitize(info.url.host_str().unwrap_or(""), 30),
-                                                    sanitize(&info.title, 380)
+                                                    info.title.trunc(380)
                                                 )
                                             );
                                             if let Some(desc) = &info.desc {
@@ -133,7 +132,7 @@ async fn irc_connect(
                                                     format!(
                                                         "[\x0303{}\x02\x02\x0f] \x0300\x02\x02{}\x0f",
                                                         sanitize(info.url.host_str().unwrap_or(""), 30),
-                                                        sanitize(&desc, 380)
+                                                        desc.trunc(380)
                                                     )
                                                 );
                                             }
@@ -230,29 +229,6 @@ fn format_tweeter(user: &egg_mode::user::TwitterUser) -> String {
         },
         user.created_at.format("%F %H:%M")
     )
-}
-
-fn sanitize(text: &str, max_bytes: usize) -> String {
-    lazy_static! {
-        // Collapse any whitespace to a single space
-        static ref WHITESPACE: Regex = Regex::new(r"\s+").unwrap();
-
-        // Strip control codes and multiple combining chars
-        static ref CONTROL: Regex = Regex::new(r"\pC|(?:\pM{2})\pM+").unwrap();
-    }
-
-    let text = WHITESPACE.replace_all(text, " ");
-    let text = CONTROL.replace_all(&text, "");
-
-    // Avoid cutting graphemes in half
-    use unicode_segmentation::UnicodeSegmentation;
-    text.grapheme_indices(true)
-        .map(|(i, c)| i + c.len())
-        .take_while(|i| *i <= max_bytes)
-        .last()
-        .map(|i| &text[..i])
-        .unwrap_or(&text)
-        .to_string()
 }
 
 fn parse_url(text: &str) -> Result<Url, url::ParseError> {

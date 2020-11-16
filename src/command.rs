@@ -10,12 +10,14 @@ use futures::prelude::*;
 use scraper::{Html, Selector};
 use url::Url;
 
-use crate::config::*;
+use crate::{config::*, irc_string::*};
+
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
     pub url: Url,
-    pub title: String,
-    pub desc: Option<String>,
+    pub title: IrcString,
+    pub desc: Option<IrcString>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -67,6 +69,8 @@ impl CommandHandler {
         let mut cache = self.cache.lock().unwrap();
 
         // TODO: run this periodically and make the cache configurable
+        // Also need to consider a size limit
+        // Note we're blocking here, consider tokio Mutex
         let now = Instant::now();
         let oldest = now - Duration::from_secs(60 * 3600);
         cache.retain(|_, resp| resp.ts > oldest);
@@ -126,6 +130,7 @@ async fn handle_url(
 }
 
 // TODO: Rate limit handling
+// Replace t.com redirections with original URLs via UrlEntities if they're not too long
 async fn fetch_tweet(token: egg_mode::auth::Token, id: u64) -> Result<tweet::Tweet, Error> {
     Ok(egg_mode::tweet::show(id, &token).await?.response)
 }
@@ -168,7 +173,8 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> 
     let title = fragment
         .select(&title_selector)
         .next()
-        .map(|n| n.text().collect::<String>())
+        .map(|n| IrcString::from(n.text().collect::<String>()))
+        .filter(|s| !s.is_empty())
         .ok_or_else(|| anyhow!("No title"))?;
 
     let desc = fragment
@@ -176,7 +182,8 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> 
         .next()
         .and_then(|n| n.value().attr("content"))
         .map(html_escape::decode_html_entities)
-        .map(|s| s.to_string());
+        .filter(|s| !s.is_empty())
+        .map(|s| IrcString::from(s));
 
     Ok(UrlInfo {
         url: res.url().clone(),

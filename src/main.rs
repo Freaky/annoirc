@@ -9,6 +9,7 @@ use tokio::stream::{StreamExt, StreamMap};
 mod command;
 mod config;
 mod irc;
+mod irc_string;
 
 use crate::{command::*, config::*, irc::*};
 
@@ -45,7 +46,7 @@ async fn main() -> Result<(), Error> {
 
     loop {
         if active {
-            for (netname, _) in &config.network {
+            for netname in config.network.keys() {
                 if !connections.contains_key(netname) {
                     info!(log, "spawn"; "name" => netname);
                     let name = netname.clone();

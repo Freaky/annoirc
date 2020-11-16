@@ -87,7 +87,7 @@ impl ConfigMonitor {
         let txx = tx.clone();
         let logx = log.clone();
         tokio::spawn(async move {
-            if let Ok(_) = tokio::signal::ctrl_c().await {
+            if tokio::signal::ctrl_c().await.is_ok() {
                 info!(logx, "INTERRUPT");
                 txx.close();
             }
@@ -101,7 +101,7 @@ impl ConfigMonitor {
             let logx = log.clone();
             let txx = tx.clone();
             tokio::spawn(async move {
-                if let Some(_) = signal(SignalKind::terminate()).unwrap().recv().await {
+                if signal(SignalKind::terminate()).unwrap().recv().await.is_some() {
                     info!(logx, "SIGTERM");
                     txx.close();
                 }
@@ -110,7 +110,7 @@ impl ConfigMonitor {
             tokio::spawn(async move {
                 let mut hups = signal(SignalKind::hangup()).unwrap();
 
-                while let Some(_) = hups.recv().await {
+                while hups.recv().await.is_some() {
                     info!(log, "SIGHUP");
 
                     match BotConfig::load(&path).await {

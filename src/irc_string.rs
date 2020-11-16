@@ -1,10 +1,9 @@
-
 use std::fmt;
 
-use regex::Regex;
-use lazy_static::lazy_static;
-use serde::Serialize;
 use itertools::join;
+use lazy_static::lazy_static;
+use regex::Regex;
+use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Hash, Serialize)]
 /// An IRC-safe string with stripped control codes, trimmed whitespace, and a reasonable length
@@ -45,7 +44,10 @@ pub fn sanitize(text: &str, max_bytes: usize) -> String {
         static ref CONTROL: Regex = Regex::new(r"\pC|(?:\pM{2})\pM+").unwrap();
     }
 
-    let text = join(text.split_whitespace().map(|s| CONTROL.replace_all(&s, "")), " ");
+    let text = join(
+        text.split_whitespace().map(|s| CONTROL.replace_all(&s, "")),
+        " ",
+    );
 
     truncate(&text, max_bytes).to_string()
 }
@@ -56,7 +58,7 @@ fn vaguely_test_sanitize() {
         (" foo  bar  baz ", "foo bar baz"),
         ("foo\nbar\tbaz", "foo bar baz"),
         ("Z̡̢̖͛̍ͫ̂̚͜A̸̶̡̩͖͉̟̞̺ͨ̎̓ͭ̇̂Ḻ̵͋́̃͝͡G̪̹͌̋ͅǪ̖̐ͭ̑!͚͙͈̐͢", "ZALGO!"),
-        ("0123456789abcdefghijklm", "0123456789abcdef…")
+        ("0123456789abcdefghijklm", "0123456789abcdef…"),
     ];
 
     for (src, tgt) in tests {
@@ -66,18 +68,17 @@ fn vaguely_test_sanitize() {
 
 fn truncate<'a>(s: &'a str, max_bytes: usize) -> MaybeTruncated<'a> {
     use unicode_segmentation::UnicodeSegmentation;
-    s
-        .grapheme_indices(true)
+    s.grapheme_indices(true)
         .map(|(i, c)| i + c.len())
         .take_while(|i| *i <= max_bytes)
         .last()
-        .map(|i|
+        .map(|i| {
             if i < s.len() {
                 MaybeTruncated::Yup(&s[..i])
             } else {
                 MaybeTruncated::Nope(&s[..i])
             }
-        )
+        })
         .unwrap_or(MaybeTruncated::Nope(&s[..0]))
 }
 
@@ -90,7 +91,7 @@ impl fmt::Display for MaybeTruncated<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MaybeTruncated::Yup(s) => write!(f, "{}…", s),
-            MaybeTruncated::Nope(s) => write!(f, "{}", s)
+            MaybeTruncated::Nope(s) => write!(f, "{}", s),
         }
     }
 }

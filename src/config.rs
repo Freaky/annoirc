@@ -101,7 +101,12 @@ impl ConfigMonitor {
             let logx = log.clone();
             let txx = tx.clone();
             tokio::spawn(async move {
-                if signal(SignalKind::terminate()).unwrap().recv().await.is_some() {
+                if signal(SignalKind::terminate())
+                    .unwrap()
+                    .recv()
+                    .await
+                    .is_some()
+                {
                     info!(logx, "SIGTERM");
                     txx.close();
                 }

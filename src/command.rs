@@ -12,7 +12,6 @@ use url::Url;
 
 use crate::{config::*, irc_string::*};
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
     pub url: Url,

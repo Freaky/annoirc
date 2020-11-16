@@ -144,6 +144,10 @@ async fn fetch_tweeter(
 async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> {
     let mut res = client.get(url).send().await?;
 
+    if !res.status().is_success() {
+        return Err(anyhow!("Status {}", res.status()));
+    }
+
     if res
         .remote_addr()
         .map(|addr| !ip_rfc::global(&addr.ip()))
@@ -152,13 +156,26 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> 
         return Err(anyhow!("Restricted IP"));
     }
 
-    let limit = 256 * 1024;
-    let mut buf = Vec::with_capacity(limit);
+    if let Some(mime) = res
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|ct| ct.to_str().ok())
+        .and_then(|ct| ct.parse::<mime::Mime>().ok())
+    {
+        if mime.type_() != mime::TEXT {
+            return Err(anyhow!("Ignoring mime type {}", mime));
+        }
+    }
 
-    // TODO: skip if an obviously uninteresting MIME type
+    let byte_limit = 64 * 1024;
+    let mut chunk_limit = 32;
+    let mut buf = Vec::with_capacity(byte_limit * 2);
+
     while let Some(chunk) = res.chunk().await? {
         buf.extend(chunk);
-        if buf.len() >= limit {
+        chunk_limit -= 1;
+
+        if buf.len() >= byte_limit || chunk_limit == 0 {
             break;
         }
     }
@@ -181,8 +198,8 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> 
         .next()
         .and_then(|n| n.value().attr("content"))
         .map(html_escape::decode_html_entities)
-        .filter(|s| !s.is_empty())
-        .map(|s| IrcString::from(s));
+        .map(|s| IrcString::from(s))
+        .filter(|s| !s.is_empty());
 
     Ok(UrlInfo {
         url: res.url().clone(),

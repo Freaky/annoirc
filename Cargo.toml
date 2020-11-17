@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-irc = { git = "https://github.com/Freaky/irc", branch = "ping-wait", features = ["tls-rust", "serde"], default-features = false }
+irc = { git = "https://github.com/aatxe/irc.git", branch = "develop", features = ["tls-rust", "serde"], default-features = false }
 tokio = { version = "0.2", features = ["full"] }
 futures = "0.3.6"
 slog = "2.5.2"

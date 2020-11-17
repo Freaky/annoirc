@@ -1107,7 +1107,7 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 [[package]]
 name = "irc"
 version = "0.14.1"
-source = "git+https://github.com/Freaky/irc?branch=ping-wait#4c27a9513daf454159ed91965e9f8347f37d9607"
+source = "git+https://github.com/aatxe/irc.git?branch=develop#d6bb6704eb451c8cf34dc1979eb62f5b4dff8e36"
 dependencies = [
  "bufstream",
  "bytes",
@@ -1130,7 +1130,7 @@ dependencies = [
 [[package]]
 name = "irc-proto"
 version = "0.14.0"
-source = "git+https://github.com/Freaky/irc?branch=ping-wait#4c27a9513daf454159ed91965e9f8347f37d9607"
+source = "git+https://github.com/aatxe/irc.git?branch=develop#d6bb6704eb451c8cf34dc1979eb62f5b4dff8e36"
 dependencies = [
  "bytes",
  "encoding",
@@ -2125,9 +2125,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.4.2"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbee7696b84bbf3d89a1c2eccff0850e3047ed46bfcd2e92c29a2d074d57e252"
+checksum = "7acad6f34eb9e8a259d3283d1e8c1d34d7415943d4895f65cc73813c7396fc85"
 
 [[package]]
 name = "socket2"

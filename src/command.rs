@@ -195,7 +195,7 @@ async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> 
         .next()
         .and_then(|n| n.value().attr("content"))
         .map(html_escape::decode_html_entities)
-        .map(|s| IrcString::from(s))
+        .map(IrcString::from)
         .filter(|s| !s.is_empty());
 
     Ok(UrlInfo {

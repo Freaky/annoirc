@@ -1,6 +1,6 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 use egg_mode_text::url_entities;
 use futures::{stream::FuturesUnordered, TryFutureExt};
 use governor::{Quota, RateLimiter};

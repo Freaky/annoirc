@@ -19,7 +19,7 @@ where
 }
 
 impl IrcString {
-    pub fn trunc<'a>(&'a self, max: usize) -> MaybeTruncated<'a> {
+    pub fn trunc(&'_ self, max: usize) -> MaybeTruncated<'_> {
         truncate(&self.0, max)
     }
 
@@ -66,7 +66,7 @@ fn vaguely_test_sanitize() {
     }
 }
 
-fn truncate<'a>(s: &'a str, max_bytes: usize) -> MaybeTruncated<'a> {
+fn truncate(s: &'_ str, max_bytes: usize) -> MaybeTruncated<'_> {
     use unicode_segmentation::UnicodeSegmentation;
     s.grapheme_indices(true)
         .map(|(i, c)| i + c.len())

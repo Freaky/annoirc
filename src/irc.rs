@@ -27,7 +27,7 @@ impl IrcTask {
         handler: CommandHandler,
         config: ConfigMonitor,
         name: String,
-    ) -> JoinHandle<()> {
+    ) -> JoinHandle<String> {
         let log = log.new(o!("network" => name.clone()));
         let mut s = Self {
             log,
@@ -36,7 +36,10 @@ impl IrcTask {
             name,
         };
 
-        tokio::spawn(async move { s.connect_loop().await })
+        tokio::spawn(async move {
+            s.connect_loop().await;
+            s.name
+        })
     }
 
     async fn connect_loop(&mut self) {

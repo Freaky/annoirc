@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use anyhow::Error;
 use clap::Clap;
-use futures::FutureExt;
+use futures::stream::FuturesUnordered;
 use slog::{info, o, Drain, Level};
-use tokio::stream::{StreamExt, StreamMap};
+use tokio::stream::StreamExt;
 
 mod command;
 mod config;
@@ -42,30 +42,23 @@ async fn main() -> Result<(), Error> {
     let mut config = config_update.current();
 
     let handler = CommandHandler::new(config_update.clone());
-    let mut connections = StreamMap::new();
+    let mut networks = std::collections::HashSet::<String>::new();
+    let mut connections = FuturesUnordered::new();
     let mut active = true;
 
     loop {
         if active {
             for netname in config.network.keys() {
-                if !connections.contains_key(netname) {
-                    info!(log, "spawn"; "name" => netname);
-                    connections.insert(
+                if !networks.contains(netname) {
+                    networks.insert(netname.clone());
+                    connections.push(IrcTask::spawn(
+                        log.clone(),
+                        handler.clone(),
+                        config_update.clone(),
                         netname.clone(),
-                        IrcTask::spawn(
-                            log.clone(),
-                            handler.clone(),
-                            config_update.clone(),
-                            netname.clone(),
-                        )
-                        .into_stream(),
-                    );
+                    ));
                 }
             }
-        }
-
-        if connections.is_empty() {
-            break;
         }
 
         tokio::select! {
@@ -76,9 +69,9 @@ async fn main() -> Result<(), Error> {
                     active = false;
                 }
             },
-            Some((network, connection)) = connections.next() => {
-                info!(log, "close"; "network" => &network, "result" => ?connection);
-                connections.remove(&network);
+            Some(connection) = connections.next(), if !connections.is_empty() => {
+                let network = connection.expect("Shouldn't panic");
+                networks.remove(&network);
             },
             else => break
         }

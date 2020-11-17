@@ -18,7 +18,7 @@ pub struct ConfigMonitor(watch::Receiver<Arc<BotConfig>>);
 pub struct ConfigUpdater(Arc<Mutex<Option<watch::Sender<Arc<BotConfig>>>>>);
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-#[serde(default)]
+#[serde(deny_unknown_fields, default)]
 pub struct BotConfig {
     pub command: CommandConfig,
     pub template: TemplateConfig,
@@ -29,13 +29,13 @@ pub struct BotConfig {
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-#[serde(default)]
+#[serde(deny_unknown_fields, default)]
 pub struct TwitterConfig {
     pub bearer_token: Option<String>,
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
-#[serde(default)]
+#[serde(deny_unknown_fields, default)]
 pub struct UrlConfig {
     pub max_per_message: u8,
     pub http_timeout_secs: u8,
@@ -45,7 +45,7 @@ pub struct UrlConfig {
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
-#[serde(default)]
+#[serde(deny_unknown_fields, default)]
 pub struct CommandConfig {
     pub max_concurrency: u8,
     pub max_runtime_secs: u8,
@@ -78,7 +78,7 @@ impl Default for CommandConfig {
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
-#[serde(default)]
+#[serde(deny_unknown_fields, default)]
 pub struct TemplateConfig {
     pub title: String,
     pub tweet: String,

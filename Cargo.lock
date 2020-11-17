@@ -65,6 +65,7 @@ dependencies = [
  "itertools",
  "lazy_static 1.4.0",
  "log",
+ "lru_time_cache",
  "mime",
  "nonzero_ext",
  "regex 1.4.2",
@@ -1330,6 +1331,12 @@ checksum = "4fabed175da42fed1fa0746b0ea71f412aa9d35e76e95e59b192c64b9dc2bf8b"
 dependencies = [
  "cfg-if 0.1.10",
 ]
+
+[[package]]
+name = "lru_time_cache"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebac060fafad3adedd0c66a80741a92ff4bc8e94a273df2ba3770ab206f2e29a"
 
 [[package]]
 name = "mac"

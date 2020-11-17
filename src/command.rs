@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -7,6 +7,7 @@ use futures::channel::oneshot;
 use futures::future::Shared;
 use futures::prelude::*;
 use scraper::{Html, Selector};
+use lru_time_cache::LruCache;
 use url::Url;
 
 use crate::{config::*, irc_string::*, twitter::*};
@@ -18,7 +19,7 @@ pub struct UrlInfo {
     pub desc: Option<IrcString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum BotCommand {
     Url(Url),
 }
@@ -26,7 +27,7 @@ pub enum BotCommand {
 // Consider Boxing these, or moving the Arc internally
 #[derive(Clone, Debug)]
 pub enum Info {
-    Url(UrlInfo), // A final Url after redirects and a title string
+    Url(UrlInfo),
     Tweet(Tweet),
     Tweeter(Tweeter),
 }
@@ -39,12 +40,12 @@ pub struct Response {
 
 pub static USER_AGENT: &str = concat!("Mozilla/5.0 annobot", "/", env!("CARGO_PKG_VERSION"));
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct CommandHandler {
     config: ConfigMonitor,
     client: reqwest::Client,
     twitter: TwitterHandler,
-    cache: Arc<Mutex<HashMap<BotCommand, Response>>>,
+    cache: Arc<Mutex<LruCache<BotCommand, Response>>>,
 }
 
 impl CommandHandler {
@@ -59,7 +60,7 @@ impl CommandHandler {
                 .pool_max_idle_per_host(1)
                 .build()
                 .expect("Couldn't build HTTP client"),
-            cache: Arc::new(Mutex::new(HashMap::new())),
+            cache: Arc::new(Mutex::new(LruCache::with_expiry_duration_and_capacity(Duration::from_secs(1600), 128))),
         }
     }
 
@@ -68,13 +69,6 @@ impl CommandHandler {
         command: BotCommand,
     ) -> Shared<oneshot::Receiver<Arc<Result<Info, Error>>>> {
         let mut cache = self.cache.lock().unwrap();
-
-        // TODO: run this periodically and make the cache configurable
-        // Also need to consider a size limit
-        // Note we're blocking here, consider tokio Mutex
-        let now = Instant::now();
-        let oldest = now - Duration::from_secs(60 * 3600);
-        cache.retain(|_, resp| resp.ts > oldest);
 
         if let Some(res) = cache.get(&command) {
             return res.info.clone();
@@ -88,7 +82,7 @@ impl CommandHandler {
             command.clone(),
             Response {
                 info: rx.clone(),
-                ts: now,
+                ts: Instant::now(),
             },
         );
 

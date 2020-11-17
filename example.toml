@@ -1,0 +1,16 @@
+
+[twitter]
+# Apply for API access at https://developer.twitter.com/
+# bearer_token = ""
+
+[network.example]
+nickname = "annobot"
+alt_nicks = ["annobot_", "annobot__"]
+username = "annobot"
+realname = "Annoying Annotating Bot"
+user_info = "Blame me on Freaky"
+version = "No"
+server = "irc.example"
+port = 7000
+use_tls = true
+channels = ["#annobot"]

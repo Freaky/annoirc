@@ -8,7 +8,7 @@ use irc::client::prelude::*;
 use itertools::Itertools;
 use nonzero_ext::*;
 use slog::{error, info, o, warn, Logger};
-use tokio::{stream::StreamExt, task::JoinHandle};
+use tokio::{stream::StreamExt, task::JoinHandle, time::Instant};
 use url::Url;
 
 use crate::{command::*, config::*, irc_string::*, twitter::*};
@@ -40,21 +40,35 @@ impl IrcTask {
     }
 
     async fn connect_loop(&mut self) {
-        loop {
-            match self.connection().await {
-                Ok(exit) => {
-                    info!(self.log, "disconnected");
+        let mut conf = self.config.clone();
+        let mut next_connection = Instant::now();
 
-                    if exit {
-                        break;
+        loop {
+            let delay = next_connection > Instant::now();
+
+            tokio::select! {
+                conn = self.connection(), if !delay => {
+                    match conn {
+                        Ok(exit) => {
+                            info!(self.log, "disconnected");
+
+                            if exit {
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            error!(self.log, "disconnected"; "error" => %e);
+                        }
                     }
-                }
-                Err(e) => {
-                    error!(self.log, "disconnected"; "error" => %e);
+                    let wait = Duration::from_secs(10);
+                    info!(self.log, "sleep"; "delay" => ?wait);
+                    next_connection = Instant::now() + wait;
+                },
+                _ = tokio::time::delay_until(next_connection), if delay => { },
+                None = conf.next() => {
+                    break;
                 }
             }
-
-            tokio::time::delay_for(Duration::from_secs(10)).await
         }
     }
 

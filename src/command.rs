@@ -6,10 +6,10 @@ use std::{
 use anyhow::{anyhow, Error};
 use futures::{channel::oneshot, future::Shared, prelude::*};
 use lru_time_cache::LruCache;
-use scraper::{Html, Selector};
-use url::Url;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE, USER_AGENT};
+use scraper::{Html, Selector};
 use tokio::time::timeout;
+use url::Url;
 
 use crate::{config::*, irc_string::*, twitter::*};
 
@@ -102,7 +102,8 @@ impl CommandHandler {
         );
 
         let handler = self.clone();
-        let max_runtime = Duration::from_secs(self.config.current().command.max_runtime_secs as u64);
+        let max_runtime =
+            Duration::from_secs(self.config.current().command.max_runtime_secs as u64);
 
         tokio::spawn(async move {
             let res = match command {
@@ -111,9 +112,8 @@ impl CommandHandler {
 
             match res {
                 Ok(res) => tx.send(Arc::new(res)),
-                Err(_) => tx.send(Arc::new(Err(anyhow!("Timed out"))))
+                Err(_) => tx.send(Arc::new(Err(anyhow!("Timed out")))),
             }
-
         });
 
         rx
@@ -146,23 +146,32 @@ impl CommandHandler {
 
         let mut headers = HeaderMap::new();
         // These are validated on config load
-        headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_str(&config.url.accept_language).unwrap());
-        headers.insert(USER_AGENT, HeaderValue::from_str(&config.url.user_agent).unwrap());
+        headers.insert(
+            ACCEPT_LANGUAGE,
+            HeaderValue::from_str(&config.url.accept_language).unwrap(),
+        );
+        headers.insert(
+            USER_AGENT,
+            HeaderValue::from_str(&config.url.user_agent).unwrap(),
+        );
 
-        let mut res = self.client
+        let mut res = self
+            .client
             .get(url)
             .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
             .headers(headers)
-            .send().await?;
+            .send()
+            .await?;
 
         if !res.status().is_success() {
             return Err(anyhow!("Status {}", res.status()));
         }
 
-        if config.url.globally_routable_only && res
-            .remote_addr()
-            .map(|addr| !ip_rfc::global(&addr.ip()))
-            .unwrap_or_default()
+        if config.url.globally_routable_only
+            && res
+                .remote_addr()
+                .map(|addr| !ip_rfc::global(&addr.ip()))
+                .unwrap_or_default()
         {
             return Err(anyhow!("Restricted IP"));
         }
@@ -218,5 +227,4 @@ impl CommandHandler {
             desc,
         })
     }
-
 }

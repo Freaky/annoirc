@@ -6,10 +6,10 @@ use std::{
 
 use anyhow::Error;
 use irc::client::prelude::Config;
+use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
 use slog::{error, info, Logger};
 use tokio::sync::watch;
-use reqwest::header::HeaderValue;
 
 #[derive(Debug, Clone)]
 pub struct ConfigMonitor(watch::Receiver<Arc<BotConfig>>);
@@ -59,7 +59,8 @@ impl Default for UrlConfig {
             max_per_message: 3,
             http_timeout_secs: 10,
             globally_routable_only: true,
-            user_agent: "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81".to_string(),
+            user_agent: "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81"
+                .to_string(),
             accept_language: "en,*;q=0.5".to_string(),
         }
     }

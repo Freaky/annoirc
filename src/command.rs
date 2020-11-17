@@ -8,6 +8,8 @@ use futures::{channel::oneshot, future::Shared, prelude::*};
 use lru_time_cache::LruCache;
 use scraper::{Html, Selector};
 use url::Url;
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE, USER_AGENT};
+use tokio::time::timeout;
 
 use crate::{config::*, irc_string::*, twitter::*};
 
@@ -37,8 +39,6 @@ pub struct Response {
     pub ts: Instant,
 }
 
-pub static USER_AGENT: &str = concat!("Mozilla/5.0 annobot", "/", env!("CARGO_PKG_VERSION"));
-
 #[derive(Clone)]
 pub struct CommandHandler {
     config: ConfigMonitor,
@@ -63,19 +63,18 @@ impl std::fmt::Debug for CommandHandler {
 
 impl CommandHandler {
     pub fn new(config: ConfigMonitor) -> Self {
+        let cur = config.current();
         Self {
             twitter: TwitterHandler::new(config.clone()),
             config,
             client: reqwest::ClientBuilder::new()
                 .cookie_store(true)
-                .user_agent(USER_AGENT)
-                .timeout(Duration::from_secs(10))
                 .pool_max_idle_per_host(1)
                 .build()
                 .expect("Couldn't build HTTP client"),
             cache: Arc::new(Mutex::new(LruCache::with_expiry_duration_and_capacity(
-                Duration::from_secs(1600),
-                128,
+                Duration::from_secs(cur.command.cache_time_secs as u64),
+                cur.command.cache_entries as usize,
             ))),
         }
     }
@@ -91,7 +90,7 @@ impl CommandHandler {
         }
 
         // Would this be better off just as a JoinHandle?
-        let (tx, rx) = oneshot::channel::<Arc<Result<Info, anyhow::Error>>>();
+        let (tx, rx) = oneshot::channel::<Arc<Result<Info, Error>>>();
         let rx = rx.shared();
 
         cache.insert(
@@ -103,13 +102,18 @@ impl CommandHandler {
         );
 
         let handler = self.clone();
+        let max_runtime = Duration::from_secs(self.config.current().command.max_runtime_secs as u64);
 
         tokio::spawn(async move {
             let res = match command {
-                BotCommand::Url(url) => handler.handle_url(url).await,
+                BotCommand::Url(url) => timeout(max_runtime, handler.handle_url(url)).await,
             };
 
-            tx.send(Arc::new(res))
+            match res {
+                Ok(res) => tx.send(Arc::new(res)),
+                Err(_) => tx.send(Arc::new(Err(anyhow!("Timed out"))))
+            }
+
         });
 
         rx
@@ -134,73 +138,85 @@ impl CommandHandler {
             }
         }
 
-        fetch_url(self.client.clone(), url).await.map(Info::Url)
-    }
-}
-
-async fn fetch_url(client: reqwest::Client, url: Url) -> Result<UrlInfo, Error> {
-    let mut res = client.get(url).send().await?;
-
-    if !res.status().is_success() {
-        return Err(anyhow!("Status {}", res.status()));
+        self.fetch_url(url).await.map(Info::Url)
     }
 
-    if res
-        .remote_addr()
-        .map(|addr| !ip_rfc::global(&addr.ip()))
-        .unwrap_or_default()
-    {
-        return Err(anyhow!("Restricted IP"));
-    }
+    async fn fetch_url(&self, url: Url) -> Result<UrlInfo, Error> {
+        let config = self.config.current();
 
-    if let Some(mime) = res
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|ct| ct.to_str().ok())
-        .and_then(|ct| ct.parse::<mime::Mime>().ok())
-    {
-        if mime.type_() != mime::TEXT {
-            return Err(anyhow!("Ignoring mime type {}", mime));
+        let mut headers = HeaderMap::new();
+        // These are validated on config load
+        headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_str(&config.url.accept_language).unwrap());
+        headers.insert(USER_AGENT, HeaderValue::from_str(&config.url.user_agent).unwrap());
+
+        let mut res = self.client
+            .get(url)
+            .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
+            .headers(headers)
+            .send().await?;
+
+        if !res.status().is_success() {
+            return Err(anyhow!("Status {}", res.status()));
         }
-    }
 
-    let byte_limit = 64 * 1024;
-    let mut chunk_limit = 32;
-    let mut buf = Vec::with_capacity(byte_limit * 2);
-
-    while let Some(chunk) = res.chunk().await? {
-        buf.extend(chunk);
-        chunk_limit -= 1;
-
-        if buf.len() >= byte_limit || chunk_limit == 0 {
-            break;
+        if config.url.globally_routable_only && res
+            .remote_addr()
+            .map(|addr| !ip_rfc::global(&addr.ip()))
+            .unwrap_or_default()
+        {
+            return Err(anyhow!("Restricted IP"));
         }
+
+        if let Some(mime) = res
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|ct| ct.to_str().ok())
+            .and_then(|ct| ct.parse::<mime::Mime>().ok())
+        {
+            if mime.type_() != mime::TEXT {
+                return Err(anyhow!("Ignoring mime type {}", mime));
+            }
+        }
+
+        let byte_limit = 64 * 1024;
+        let mut chunk_limit = 32;
+        let mut buf = Vec::with_capacity(byte_limit * 2);
+
+        while let Some(chunk) = res.chunk().await? {
+            buf.extend(chunk);
+            chunk_limit -= 1;
+
+            if buf.len() >= byte_limit || chunk_limit == 0 {
+                break;
+            }
+        }
+
+        let buf = String::from_utf8_lossy(&buf);
+
+        let fragment = Html::parse_document(&buf);
+        let title_selector = Selector::parse(r#"title"#).unwrap();
+        let description_selector = Selector::parse(r#"meta[name="description"], meta[name="twitter:description"], meta[property="og:description"]"#).unwrap();
+
+        let title = fragment
+            .select(&title_selector)
+            .next()
+            .map(|n| IrcString::from(n.text().collect::<String>()))
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| anyhow!("No title"))?;
+
+        let desc = fragment
+            .select(&description_selector)
+            .next()
+            .and_then(|n| n.value().attr("content"))
+            .map(html_escape::decode_html_entities)
+            .map(IrcString::from)
+            .filter(|s| !s.is_empty());
+
+        Ok(UrlInfo {
+            url: res.url().clone(),
+            title,
+            desc,
+        })
     }
 
-    let buf = String::from_utf8_lossy(&buf);
-
-    let fragment = Html::parse_document(&buf);
-    let title_selector = Selector::parse(r#"title"#).unwrap();
-    let description_selector = Selector::parse(r#"meta[name="description"], meta[name="twitter:description"], meta[property="og:description"]"#).unwrap();
-
-    let title = fragment
-        .select(&title_selector)
-        .next()
-        .map(|n| IrcString::from(n.text().collect::<String>()))
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| anyhow!("No title"))?;
-
-    let desc = fragment
-        .select(&description_selector)
-        .next()
-        .and_then(|n| n.value().attr("content"))
-        .map(html_escape::decode_html_entities)
-        .map(IrcString::from)
-        .filter(|s| !s.is_empty());
-
-    Ok(UrlInfo {
-        url: res.url().clone(),
-        title,
-        desc,
-    })
 }

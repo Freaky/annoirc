@@ -59,7 +59,7 @@ impl IrcTask {
     }
 
     async fn connection(&mut self) -> Result<bool, Error> {
-        let config = self.config.current();
+        let mut config = self.config.current();
 
         let netconf = config.network.get(&self.name);
         if netconf.is_none() {
@@ -67,11 +67,11 @@ impl IrcTask {
             return Ok(true);
         }
 
-        let netconf = netconf.unwrap();
+        let netconf = netconf.unwrap().clone();
 
         info!(self.log, "connect"; "server" => &netconf.server, "port" => &netconf.port);
 
-        let mut quitting = false;
+        let mut shutdown = false;
 
         let mut client = Client::from_config(netconf.clone()).await?;
         client.identify()?;
@@ -83,14 +83,25 @@ impl IrcTask {
 
         loop {
             tokio::select! {
-                conf = self.config.next(), if !quitting => {
+                newconf = self.config.next(), if !shutdown => {
                     // Might be nice to have a timeout set up for dropping the connection.
-                    match conf {
-                        Some(_) => info!(self.log, "reconnecting"),
-                        None => info!(self.log, "disconnecting"),
+                    if let Some(newconf) = newconf {
+                        config = newconf;
+                        if let Some(new_netconf) = config.network.get(&self.name) {
+                            if *new_netconf != netconf {
+                                info!(self.log, "reconnecting");
+                                client.send_quit("Reconnecting")?;
+                            }
+                        } else {
+                            shutdown = true;
+                            info!(self.log, "deconfigured");
+                            client.send_quit("Disconnecting")?;
+                        }
+                    } else {
+                        shutdown = true;
+                        info!(self.log, "disconnecting");
+                        client.send_quit("Disconnecting")?;
                     }
-                    client.send_quit("Disconnecting")?;
-                    quitting = true;
                 },
                 Some(futur) = pending.next() => {
                     info!(self.log, "resolved"; "result" => ?futur);
@@ -120,7 +131,7 @@ impl IrcTask {
                                 for url in url_entities(&content)
                                     .into_iter()
                                     .filter_map(|url| parse_url(url.substr(content)).ok())
-                                    .take(config.http.max_per_message as usize)
+                                    .take(config.url.max_per_message as usize)
                                     .unique()
                                     {
                                     if limiter.check_key(&target.clone()).is_err() {
@@ -201,7 +212,7 @@ impl IrcTask {
             }
         }
 
-        Ok(quitting)
+        Ok(shutdown)
     }
 }
 

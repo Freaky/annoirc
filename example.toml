@@ -1,6 +1,40 @@
 
+# General command processing settings
+[command]
+## Maximum commands in flight at once
+max_concurrency = 8
+
+## Maximum runtime for any one command
+max_runtime_secs = 10
+
+## Retain previous results for this many seconds
+cache_time_secs = 1800
+
+## Retain up to this many previous results
+cache_entries = 256
+
+# Settings for URL handling
+[url]
+## Maximum URLs to process per PRIVMSG
+max_per_message = 3
+
+## HTTP request timeout - will never exceed general command timeout
+http_timeout_secs = 10
+
+## If a request lands on a host that isn't globally routable (e.g. localhost)
+## refuse to return any data.  This is currently only processed at the end of
+## a request, after any redirections.
+globally_routable_only = true
+
+## User-Agent for requests
+user_agent = "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81"
+
+## Accept-Language header
+## https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language
+accept_language = "en,*;q=0.5"
+
 [twitter]
-# Apply for API access at https://developer.twitter.com/
+## Apply for API access at https://developer.twitter.com/
 # bearer_token = ""
 
 [network.example]

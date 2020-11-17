@@ -9,6 +9,7 @@ use irc::client::prelude::Config;
 use serde::{Deserialize, Serialize};
 use slog::{error, info, Logger};
 use tokio::sync::watch;
+use reqwest::header::HeaderValue;
 
 #[derive(Debug, Clone)]
 pub struct ConfigMonitor(watch::Receiver<Arc<BotConfig>>);
@@ -19,8 +20,9 @@ pub struct ConfigUpdater(Arc<Mutex<Option<watch::Sender<Arc<BotConfig>>>>>);
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct BotConfig {
+    pub command: CommandConfig,
     pub template: TemplateConfig,
-    pub http: HttpConfig,
+    pub url: UrlConfig,
     pub twitter: TwitterConfig,
     pub defaults: Config,
     pub network: HashMap<String, Config>,
@@ -34,18 +36,42 @@ pub struct TwitterConfig {
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
 #[serde(default)]
-pub struct HttpConfig {
+pub struct UrlConfig {
     pub max_per_message: u8,
-    pub network_workers: u8,
-    pub network_timeout_secs: u16,
+    pub http_timeout_secs: u8,
+    pub globally_routable_only: bool,
+    pub user_agent: String,
+    pub accept_language: String,
 }
 
-impl Default for HttpConfig {
+#[derive(Serialize, Debug, Deserialize, Clone)]
+#[serde(default)]
+pub struct CommandConfig {
+    pub max_concurrency: u8,
+    pub max_runtime_secs: u8,
+    pub cache_time_secs: u32,
+    pub cache_entries: u32,
+}
+
+impl Default for UrlConfig {
     fn default() -> Self {
         Self {
             max_per_message: 3,
-            network_workers: 4,
-            network_timeout_secs: 10,
+            http_timeout_secs: 10,
+            globally_routable_only: true,
+            user_agent: "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81".to_string(),
+            accept_language: "en,*;q=0.5".to_string(),
+        }
+    }
+}
+
+impl Default for CommandConfig {
+    fn default() -> Self {
+        Self {
+            max_concurrency: 8,
+            max_runtime_secs: 10,
+            cache_time_secs: 1800,
+            cache_entries: 256,
         }
     }
 }
@@ -70,6 +96,8 @@ impl BotConfig {
     async fn load(path: &Path) -> Result<BotConfig, anyhow::Error> {
         let config = tokio::fs::read_to_string(&path).await?;
         let config: BotConfig = toml::from_str(&config)?;
+        HeaderValue::from_str(&config.url.accept_language)?;
+        HeaderValue::from_str(&config.url.user_agent)?;
         Ok(config)
     }
 }

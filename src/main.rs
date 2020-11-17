@@ -50,12 +50,15 @@ async fn main() -> Result<(), Error> {
             for netname in config.network.keys() {
                 if !connections.contains_key(netname) {
                     info!(log, "spawn"; "name" => netname);
-                    let name = netname.clone();
-                    let cu = config_update.clone();
-                    let newlog = log.new(o!("network" => name.clone()));
                     connections.insert(
                         netname.clone(),
-                        tokio::spawn(irc_instance(newlog, handler.clone(), name, cu)).into_stream(),
+                        IrcTask::spawn(
+                            log.clone(),
+                            handler.clone(),
+                            config_update.clone(),
+                            netname.clone(),
+                        )
+                        .into_stream(),
                     );
                 }
             }

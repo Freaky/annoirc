@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Error};
 use egg_mode_text::url_entities;
@@ -8,176 +8,201 @@ use irc::client::prelude::*;
 use itertools::Itertools;
 use nonzero_ext::*;
 use slog::{error, info, o, warn, Logger};
-use tokio::stream::StreamExt;
+use tokio::{stream::StreamExt, task::JoinHandle};
 use url::Url;
 
 use crate::{command::*, config::*, irc_string::*, twitter::*};
 
-pub async fn irc_instance(
+#[derive(Debug)]
+pub struct IrcTask {
+    name: String,
     log: Logger,
     handler: CommandHandler,
-    name: String,
-    config_update: ConfigMonitor,
-) {
-    loop {
-        match irc_connect(log.clone(), handler.clone(), &name, config_update.clone()).await {
-            Ok(exit) => {
-                info!(log, "disconnect");
-                if exit {
-                    break;
-                }
-            }
-            Err(e) => {
-                error!(log, "disconnect"; "error" => e.to_string());
-            }
-        }
-
-        // TODO: backoff, log wait time
-        tokio::time::delay_for(Duration::from_secs(10)).await
-    }
+    config: ConfigMonitor,
 }
 
-async fn irc_connect(
-    log: Logger,
-    handler: CommandHandler,
-    name: &str,
-    mut config_update: ConfigMonitor,
-) -> Result<bool, Error> {
-    let config = config_update.current();
+impl IrcTask {
+    pub fn spawn(
+        log: Logger,
+        handler: CommandHandler,
+        config: ConfigMonitor,
+        name: String,
+    ) -> JoinHandle<()> {
+        let log = log.new(o!("network" => name.clone()));
+        let mut s = Self {
+            log,
+            handler,
+            config,
+            name,
+        };
 
-    let netconf = config
-        .network
-        .get(name)
-        .ok_or_else(|| anyhow!("network shutdown"))?;
+        tokio::spawn(async move { s.connect_loop().await })
+    }
 
-    info!(log, "connect"; "server" => &netconf.server, "port" => &netconf.port);
+    async fn connect_loop(&mut self) {
+        loop {
+            match self.connection().await {
+                Ok(exit) => {
+                    info!(self.log, "disconnected");
 
-    let mut quitting = false;
-
-    let mut client = Client::from_config(netconf.clone()).await?;
-    client.identify()?;
-
-    let mut stream = client.stream()?;
-    let mut pending = FuturesUnordered::new();
-    let quota = Quota::per_minute(nonzero!(10u32)); // Max of 10 per minute per channel
-    let limiter = RateLimiter::keyed(quota);
-
-    loop {
-        tokio::select! {
-            _ = config_update.next(), if !quitting => {
-                client.send_quit("Disconnecting")?;
-                quitting = true;
-            },
-            Some(futur) = pending.next() => {
-                info!(log, "resolved"; "result" => ?futur);
-            },
-            message = stream.next() => {
-                if message.is_none() {
-                    break;
-                }
-                let message = message.unwrap();
-                let message = message?;
-
-                match &message.command {
-                    Command::INVITE(target, channel) if target == client.current_nickname() && netconf.channels.contains(&channel) => {
-                        info!(log, "invited"; "channel" => channel);
-                        // TODO: channel keys
-                        client.send_join(channel)?;
-                    },
-                    Command::KICK(channel, target, reason) if target == client.current_nickname() => {
-                        info!(log, "kicked"; "channel" => channel, "reason" => reason);
+                    if exit {
+                        break;
                     }
-                    Command::PRIVMSG(target, content) => {
-                        if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
-                            if nick == client.current_nickname() || content.starts_with('\x01') || !netconf.channels.contains(&target) {
-                                continue;
-                            }
+                }
+                Err(e) => {
+                    error!(self.log, "disconnected"; "error" => %e);
+                }
+            }
 
-                            // TODO: Rate limit, deduplicate replies across requests
-                            for url in url_entities(&content)
-                                .into_iter()
-                                .filter_map(|url| parse_url(url.substr(content)).ok())
-                                .take(config.http.max_per_message as usize)
-                                .unique()
-                                {
-                                if limiter.check_key(&target.clone()).is_err() {
-                                    warn!(log, "ratelimit"; "channel" => target, "nick" => nick);
-                                    break;
+            tokio::time::delay_for(Duration::from_secs(10)).await
+        }
+    }
+
+    async fn connection(&mut self) -> Result<bool, Error> {
+        let config = self.config.current();
+
+        let netconf = config.network.get(&self.name);
+        if netconf.is_none() {
+            info!(self.log, "deconfigured");
+            return Ok(true);
+        }
+
+        let netconf = netconf.unwrap();
+
+        info!(self.log, "connect"; "server" => &netconf.server, "port" => &netconf.port);
+
+        let mut quitting = false;
+
+        let mut client = Client::from_config(netconf.clone()).await?;
+        client.identify()?;
+
+        let mut stream = client.stream()?;
+        let mut pending = FuturesUnordered::new();
+        let quota = Quota::per_minute(nonzero!(10u32)); // Max of 10 per minute per channel
+        let limiter = RateLimiter::keyed(quota);
+
+        loop {
+            tokio::select! {
+                conf = self.config.next(), if !quitting => {
+                    // Might be nice to have a timeout set up for dropping the connection.
+                    match conf {
+                        Some(_) => info!(self.log, "reconnecting"),
+                        None => info!(self.log, "disconnecting"),
+                    }
+                    client.send_quit("Disconnecting")?;
+                    quitting = true;
+                },
+                Some(futur) = pending.next() => {
+                    info!(self.log, "resolved"; "result" => ?futur);
+                },
+                message = stream.next() => {
+                    if message.is_none() {
+                        break;
+                    }
+                    let message = message.unwrap();
+                    let message = message?;
+
+                    match &message.command {
+                        Command::INVITE(target, channel) if target == client.current_nickname() && netconf.channels.contains(&channel) => {
+                            info!(self.log, "invited"; "channel" => channel);
+                            // TODO: channel keys
+                            client.send_join(channel)?;
+                        },
+                        Command::KICK(channel, target, reason) if target == client.current_nickname() => {
+                            info!(self.log, "kicked"; "channel" => channel, "reason" => reason);
+                        }
+                        Command::PRIVMSG(target, content) => {
+                            if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
+                                if nick == client.current_nickname() || content.starts_with('\x01') || !netconf.channels.contains(&target) {
+                                    continue;
                                 }
 
-                                let urlstr = url.to_string();
-                                let cmd = BotCommand::Url(url);
-                                let sender = client.sender();
-                                let logger = log.new(o!("url" => urlstr));
-                                let target = target.clone();
-                                let fut = handler.spawn(cmd).map_ok(move |res| {
-                                    info!(logger, "resolve"; "result" => ?res);
-                                    match *res {
-                                        Ok(Info::Url(ref info)) => {
-                                            let _ = sender.send_privmsg(
-                                                &target,
-                                                format!(
-                                                    "[\x0303\x02\x02{}\x0f] \x0300\x02\x02{}\x0f",
-                                                    sanitize(info.url.host_str().unwrap_or(""), 30),
-                                                    info.title.trunc(380)
-                                                )
-                                            );
-                                            if let Some(desc) = &info.desc {
+                                for url in url_entities(&content)
+                                    .into_iter()
+                                    .filter_map(|url| parse_url(url.substr(content)).ok())
+                                    .take(config.http.max_per_message as usize)
+                                    .unique()
+                                    {
+                                    if limiter.check_key(&target.clone()).is_err() {
+                                        warn!(self.log, "ratelimit"; "channel" => target, "nick" => nick);
+                                        break;
+                                    }
+
+                                    let urlstr = url.to_string();
+                                    let cmd = BotCommand::Url(url);
+                                    let sender = client.sender();
+                                    let logger = self.log.new(o!("url" => urlstr));
+                                    let target = target.clone();
+                                    // Should probably extract this to the future resolution bit
+                                    let fut = self.handler.spawn(cmd).map_ok(move |res| {
+                                        info!(logger, "resolve"; "result" => ?res);
+                                        match *res {
+                                            Ok(Info::Url(ref info)) => {
                                                 let _ = sender.send_privmsg(
                                                     &target,
                                                     format!(
-                                                        "[\x0303{}\x02\x02\x0f] \x0300\x02\x02{}\x0f",
+                                                        "[\x0303\x02\x02{}\x0f] \x0300\x02\x02{}\x0f",
                                                         sanitize(info.url.host_str().unwrap_or(""), 30),
-                                                        desc.trunc(380)
+                                                        info.title.trunc(380)
                                                     )
                                                 );
-                                            }
-                                        },
-                                        Ok(Info::Tweet(ref tweet)) => {
-                                            let _ = sender.send_privmsg(
-                                                &target,
-                                                format_tweet(tweet)
-                                            );
-                                            if let Some(quote) = &tweet.quote {
-                                                let _ = sender.send_privmsg(
-                                                    &target,
-                                                    format_tweet(quote)
-                                                );
-                                            }
-                                            if let Some(retweet) = &tweet.retweet {
-                                                let _ = sender.send_privmsg(
-                                                    &target,
-                                                    format_tweet(retweet)
-                                                );
-                                            }
-                                        },
-                                        Ok(Info::Tweeter(ref user)) => {
-                                            let _ = sender.send_privmsg(
-                                                &target,
-                                                format_tweeter(user)
-                                            );
-                                            if let Some(tweet) = &user.status {
+                                                if let Some(desc) = &info.desc {
+                                                    let _ = sender.send_privmsg(
+                                                        &target,
+                                                        format!(
+                                                            "[\x0303{}\x02\x02\x0f] \x0300\x02\x02{}\x0f",
+                                                            sanitize(info.url.host_str().unwrap_or(""), 30),
+                                                            desc.trunc(380)
+                                                        )
+                                                    );
+                                                }
+                                            },
+                                            Ok(Info::Tweet(ref tweet)) => {
                                                 let _ = sender.send_privmsg(
                                                     &target,
                                                     format_tweet(tweet)
                                                 );
-                                            }
-                                        },
-                                        _ => ()
-                                    }
-                                });
-                                pending.push(fut);
+                                                if let Some(quote) = &tweet.quote {
+                                                    let _ = sender.send_privmsg(
+                                                        &target,
+                                                        format_tweet(quote)
+                                                    );
+                                                }
+                                                if let Some(retweet) = &tweet.retweet {
+                                                    let _ = sender.send_privmsg(
+                                                        &target,
+                                                        format_tweet(retweet)
+                                                    );
+                                                }
+                                            },
+                                            Ok(Info::Tweeter(ref user)) => {
+                                                let _ = sender.send_privmsg(
+                                                    &target,
+                                                    format_tweeter(user)
+                                                );
+                                                if let Some(tweet) = &user.status {
+                                                    let _ = sender.send_privmsg(
+                                                        &target,
+                                                        format_tweet(tweet)
+                                                    );
+                                                }
+                                            },
+                                            _ => ()
+                                        }
+                                    });
+                                    pending.push(fut);
+                                }
                             }
-                        }
-                    },
-                    _ => ()
-                }
-            },
-            else => break
+                        },
+                        _ => ()
+                    }
+                },
+                else => break
+            }
         }
-    }
 
-    Ok(quitting)
+        Ok(quitting)
+    }
 }
 
 fn format_tweet(tweet: &Tweet) -> String {

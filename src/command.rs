@@ -47,6 +47,20 @@ pub struct CommandHandler {
     cache: Arc<Mutex<LruCache<BotCommand, Response>>>,
 }
 
+impl std::fmt::Debug for CommandHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CommandHandler")
+            .field("config", &self.config)
+            .field("client", &self.client)
+            .field("twitter", &self.twitter)
+            .field(
+                "cache",
+                &format!("{} entires", self.cache.lock().unwrap().len()),
+            )
+            .finish()
+    }
+}
+
 impl CommandHandler {
     pub fn new(config: ConfigMonitor) -> Self {
         Self {

@@ -64,8 +64,8 @@ async fn irc_connect(
 
     loop {
         tokio::select! {
-            _newconf = config_update.next(), if !quitting => {
-                let _ = client.send_quit("Disconnecting");
+            _ = config_update.next(), if !quitting => {
+                client.send_quit("Disconnecting")?;
                 quitting = true;
             },
             Some(futur) = pending.next() => {

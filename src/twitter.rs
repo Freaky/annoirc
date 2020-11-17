@@ -110,20 +110,11 @@ impl TwitterHandler {
     }
 
     fn get_token(&self) -> Result<egg_mode::auth::Token, Error> {
-        use std::time::SystemTime;
-
         if self
             .limiter
             .lock()
             .unwrap()
-            .filter(|limit| {
-                limit.remaining == 0
-                    && limit.reset as u64
-                        > SystemTime::now()
-                            .duration_since(SystemTime::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_secs()
-            })
+            .filter(Self::is_limit_exceeded)
             .is_some()
         {
             return Err(anyhow!("Rate limited"));
@@ -136,5 +127,16 @@ impl TwitterHandler {
             .clone()
             .map(egg_mode::auth::Token::Bearer)
             .ok_or_else(|| anyhow!("Not configured"))
+    }
+
+    fn is_limit_exceeded(limit: &RateLimit) -> bool {
+        use std::time::SystemTime;
+
+        limit.remaining == 0
+            && limit.reset as u64
+                > SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
     }
 }

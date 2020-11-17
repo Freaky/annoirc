@@ -1107,6 +1107,7 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 [[package]]
 name = "irc"
 version = "0.14.1"
+source = "git+https://github.com/Freaky/irc?branch=ping-wait#4c27a9513daf454159ed91965e9f8347f37d9607"
 dependencies = [
  "bufstream",
  "bytes",
@@ -1129,6 +1130,7 @@ dependencies = [
 [[package]]
 name = "irc-proto"
 version = "0.14.0"
+source = "git+https://github.com/Freaky/irc?branch=ping-wait#4c27a9513daf454159ed91965e9f8347f37d9607"
 dependencies = [
  "bytes",
  "encoding",

@@ -2,8 +2,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Error};
 use egg_mode_text::url_entities;
-use futures::stream::FuturesUnordered;
-use futures::TryFutureExt;
+use futures::{stream::FuturesUnordered, TryFutureExt};
 use governor::{Quota, RateLimiter};
 use irc::client::prelude::*;
 use itertools::Itertools;

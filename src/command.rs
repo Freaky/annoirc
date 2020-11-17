@@ -1,13 +1,12 @@
-
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::{
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use anyhow::{anyhow, Error};
-use futures::channel::oneshot;
-use futures::future::Shared;
-use futures::prelude::*;
-use scraper::{Html, Selector};
+use futures::{channel::oneshot, future::Shared, prelude::*};
 use lru_time_cache::LruCache;
+use scraper::{Html, Selector};
 use url::Url;
 
 use crate::{config::*, irc_string::*, twitter::*};
@@ -60,7 +59,10 @@ impl CommandHandler {
                 .pool_max_idle_per_host(1)
                 .build()
                 .expect("Couldn't build HTTP client"),
-            cache: Arc::new(Mutex::new(LruCache::with_expiry_duration_and_capacity(Duration::from_secs(1600), 128))),
+            cache: Arc::new(Mutex::new(LruCache::with_expiry_duration_and_capacity(
+                Duration::from_secs(1600),
+                128,
+            ))),
         }
     }
 
@@ -99,15 +101,16 @@ impl CommandHandler {
         rx
     }
 
-    async fn handle_url(
-        &self,
-        url: Url,
-    ) -> Result<Info, Error> {
+    async fn handle_url(&self, url: Url) -> Result<Info, Error> {
         if self.config.current().twitter.bearer_token.is_some() {
             if let Some("twitter.com") = url.host_str() {
                 if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
                     if path.len() == 1 {
-                        return self.twitter.fetch_tweeter(&path[0]).await.map(Info::Tweeter);
+                        return self
+                            .twitter
+                            .fetch_tweeter(&path[0])
+                            .await
+                            .map(Info::Tweeter);
                     } else if path.len() == 3 && path[1] == "status" {
                         if let Ok(id) = path[2].parse::<u64>() {
                             return self.twitter.fetch_tweet(id).await.map(Info::Tweet);

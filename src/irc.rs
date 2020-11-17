@@ -68,7 +68,7 @@ impl IrcTask {
                     next_connection = Instant::now() + wait;
                 },
                 _ = tokio::time::delay_until(next_connection), if delay => { },
-                None = conf.next() => {
+                None = conf.next(), if delay => {
                     break;
                 }
             }

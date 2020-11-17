@@ -69,7 +69,7 @@ async fn main() -> Result<(), Error> {
                     active = false;
                 }
             },
-            Some(connection) = connections.next(), if !connections.is_empty() => {
+            Some(connection) = connections.next() => {
                 let network = connection.expect("Shouldn't panic");
                 networks.remove(&network);
             },

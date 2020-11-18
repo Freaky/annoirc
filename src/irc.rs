@@ -201,18 +201,18 @@ impl IrcTask {
                                             Ok(Info::Tweet(ref tweet)) => {
                                                 let _ = sender.send_privmsg(
                                                     &target,
-                                                    format_tweet(tweet)
+                                                    format_tweet(tweet, "Twitter")
                                                 );
                                                 if let Some(quote) = &tweet.quote {
                                                     let _ = sender.send_privmsg(
                                                         &target,
-                                                        format_tweet(quote)
+                                                        format_tweet(quote, "Retweet")
                                                     );
                                                 }
                                                 if let Some(retweet) = &tweet.retweet {
                                                     let _ = sender.send_privmsg(
                                                         &target,
-                                                        format_tweet(retweet)
+                                                        format_tweet(retweet, "Retweet")
                                                     );
                                                 }
                                             },
@@ -224,7 +224,7 @@ impl IrcTask {
                                                 if let Some(tweet) = &user.status {
                                                     let _ = sender.send_privmsg(
                                                         &target,
-                                                        format_tweet(tweet)
+                                                        format_tweet(tweet, " Status")
                                                     );
                                                 }
                                             },
@@ -246,11 +246,12 @@ impl IrcTask {
     }
 }
 
-fn format_tweet(tweet: &Tweet) -> String {
+fn format_tweet(tweet: &Tweet, tag: &str) -> String {
     // not included if retrieved from a user status field
     if let Some(user) = &tweet.user {
         format!(
-            "[\x0303Twitter\x0f] \x0304\x02\x02{}\x0f{} (@{}) \x0300\x02\x02{}\x0f | {} {}",
+            "[\x0303{}\x0f] \x0304\x02\x02{}\x0f{} (@{}) \x0300\x02\x02{}\x0f | {} {}",
+            tag,
             user.name.trunc(30),
             if user.verified { "✓" } else { "" },
             user.screen_name.trunc(30),
@@ -264,7 +265,8 @@ fn format_tweet(tweet: &Tweet) -> String {
         )
     } else {
         format!(
-            "[\x0303Twitter\x0f] \x0300\x02\x02{}\x0f | {} {}",
+            "[\x0303{}\x0f] \x0300\x02\x02{}\x0f | {} {}",
+            tag,
             tweet.text.trunc(300),
             if tweet.favourite_count == 0 {
                 "".to_string()

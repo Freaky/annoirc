@@ -132,7 +132,7 @@ impl CommandHandler {
         if self.config.current().twitter.bearer_token.is_some() {
             if let Some("twitter.com") = url.host_str() {
                 if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
-                    if path.len() == 1 {
+                    if path.len() == 1 || path.len() == 2 && path[1].is_empty() {
                         return self
                             .twitter
                             .fetch_tweeter(&path[0])

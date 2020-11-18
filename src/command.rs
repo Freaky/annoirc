@@ -68,10 +68,17 @@ impl std::fmt::Debug for CommandHandler {
     }
 }
 
+fn cache_from_config(conf: &Arc<BotConfig>) -> LruCache<BotCommand, Response> {
+    LruCache::with_expiry_duration_and_capacity(
+        Duration::from_secs(conf.command.cache_time_secs as u64),
+        conf.command.cache_entries as usize,
+    )
+}
+
 impl CommandHandler {
     pub fn new(log: Logger, config: ConfigMonitor) -> Self {
-        let cur = config.current();
-        Self {
+        let conf = config.current();
+        let handler = Self {
             log,
             twitter: TwitterHandler::new(config.clone()),
             config,
@@ -80,11 +87,18 @@ impl CommandHandler {
                 .pool_max_idle_per_host(1)
                 .build()
                 .expect("Couldn't build HTTP client"),
-            cache: Arc::new(Mutex::new(LruCache::with_expiry_duration_and_capacity(
-                Duration::from_secs(cur.command.cache_time_secs as u64),
-                cur.command.cache_entries as usize,
-            ))),
-        }
+            cache: Arc::new(Mutex::new(cache_from_config(&conf))),
+        };
+
+        let cache = handler.cache.clone();
+        let mut config = handler.config.clone();
+        tokio::spawn(async move {
+            while let Some(conf) = config.next().await {
+                *cache.lock().unwrap() = cache_from_config(&conf);
+            }
+        });
+
+        handler
     }
 
     pub fn spawn(&self, command: BotCommand) -> Response {

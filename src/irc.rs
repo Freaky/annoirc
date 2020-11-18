@@ -131,6 +131,13 @@ impl IrcTask {
                     let message = message?;
 
                     match &message.command {
+                        Command::Response(irc::proto::Response::RPL_ENDOFMOTD, _)
+                        | Command::Response(irc::proto::Response::ERR_NOMOTD, _) => {
+                            info!(self.log, "connected");
+                        },
+                        Command::JOIN(ref c, None, None) => {
+                            info!(self.log, "join"; "channel" => c);
+                        }
                         Command::INVITE(target, channel) if target == client.current_nickname() && netconf.channels.contains(&channel) => {
                             info!(self.log, "invited"; "channel" => channel);
                             // TODO: channel keys
@@ -138,7 +145,7 @@ impl IrcTask {
                         },
                         Command::KICK(channel, target, reason) if target == client.current_nickname() => {
                             info!(self.log, "kicked"; "channel" => channel, "reason" => reason);
-                        }
+                        },
                         Command::PRIVMSG(target, content) => {
                             if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
                                 if nick == client.current_nickname() || content.starts_with('\x01') || !netconf.channels.contains(&target) {

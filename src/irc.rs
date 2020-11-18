@@ -51,6 +51,7 @@ impl IrcTask {
 
     async fn connect_loop(&mut self) {
         let mut conf = self.config.clone();
+        let mut prev_connection = Instant::now();
         let mut next_connection = Instant::now();
 
         loop {
@@ -70,9 +71,23 @@ impl IrcTask {
                             error!(self.log, "disconnected"; "error" => %e);
                         }
                     }
-                    let wait = Duration::from_secs(10);
+
+                    let now = Instant::now();
+                    let diff = now - prev_connection;
+                    prev_connection = now;
+
+                    let wait = if diff > Duration::from_secs(240) {
+                        10
+                    } else {
+                        diff
+                            .min(Duration::from_secs(120))
+                            .max(Duration::from_secs(5))
+                            .as_secs() * 2
+                    };
+                    let wait = Duration::from_secs(wait);
+
                     info!(self.log, "sleep"; "delay" => ?wait);
-                    next_connection = Instant::now() + wait;
+                    next_connection = now + wait;
                 },
                 _ = tokio::time::delay_until(next_connection), if delay => { },
                 None = conf.next(), if delay => {

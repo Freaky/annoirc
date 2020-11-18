@@ -26,6 +26,7 @@ pub struct IrcTask {
     log: Logger,
     handler: CommandHandler,
     config: ConfigMonitor,
+    throttle: Backoff,
 }
 
 #[derive(Debug)]
@@ -67,6 +68,10 @@ impl Backoff {
         // Truncate to nearest second
         Some(next_delay - Duration::from_nanos(next_delay.subsec_nanos() as u64))
     }
+
+    fn success(&mut self) {
+        self.last_attempt = None;
+    }
 }
 
 impl IrcTask {
@@ -82,6 +87,7 @@ impl IrcTask {
             handler,
             config,
             name,
+            throttle: Backoff::default()
         };
 
         tokio::spawn(async move {
@@ -92,8 +98,7 @@ impl IrcTask {
 
     async fn connect_loop(&mut self) {
         let mut conf = self.config.clone();
-        let mut limiter = Backoff::default();
-        let mut delay = limiter.next();
+        let mut delay = self.throttle.next();
 
         loop {
             tokio::select! {
@@ -111,7 +116,7 @@ impl IrcTask {
                         }
                     }
 
-                    delay = limiter.next();
+                    delay = self.throttle.next();
                     if let Some(delay) = delay {
                         info!(self.log, "sleep"; "delay" => ?delay);
                     }
@@ -185,6 +190,7 @@ impl IrcTask {
                         },
                         Command::Response(irc::proto::Response::RPL_ENDOFMOTD, _)
                         | Command::Response(irc::proto::Response::ERR_NOMOTD, _) => {
+                            self.throttle.success();
                             info!(self.log, "connected"; "nick" => client.current_nickname());
                         },
                         Command::JOIN(ref c, None, None) => {

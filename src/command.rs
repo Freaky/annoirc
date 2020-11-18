@@ -1,7 +1,7 @@
 use std::{
     fmt,
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use anyhow::{anyhow, Error};
@@ -35,11 +35,7 @@ pub enum Info {
     Tweeter(Tweeter),
 }
 
-#[derive(Clone, Debug)]
-pub struct Response {
-    pub info: Shared<oneshot::Receiver<Arc<Result<Info, Error>>>>,
-    pub ts: Instant,
-}
+type Response = Shared<oneshot::Receiver<Arc<Result<Info, Error>>>>;
 
 #[derive(Clone)]
 pub struct CommandHandler {
@@ -91,16 +87,13 @@ impl CommandHandler {
         }
     }
 
-    pub fn spawn(
-        &self,
-        command: BotCommand,
-    ) -> Shared<oneshot::Receiver<Arc<Result<Info, Error>>>> {
+    pub fn spawn(&self, command: BotCommand) -> Response {
         let mut cache = self.cache.lock().unwrap();
         let log = self.log.new(o!("command" => command.to_string()));
 
         if let Some(res) = cache.get(&command) {
-            info!(log, "cached"; "result" => ?res);
-            return res.info.clone();
+            info!(log, "cached");
+            return res.clone();
         }
 
         info!(log, "execute");
@@ -109,13 +102,7 @@ impl CommandHandler {
         let (tx, rx) = oneshot::channel::<Arc<Result<Info, Error>>>();
         let rx = rx.shared();
 
-        cache.insert(
-            command.clone(),
-            Response {
-                info: rx.clone(),
-                ts: Instant::now(),
-            },
-        );
+        cache.insert(command.clone(), rx.clone());
 
         let handler = self.clone();
         let max_runtime =
@@ -125,8 +112,6 @@ impl CommandHandler {
             let res = match command {
                 BotCommand::Url(ref url) => timeout(max_runtime, handler.handle_url(url)).await,
             };
-
-            info!(log, "complete"; "result" => ?res);
 
             match res {
                 Ok(res) => {

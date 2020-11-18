@@ -136,6 +136,9 @@ impl IrcTask {
                     let message = message?;
 
                     match &message.command {
+                        Command::ERROR(ref msg) => {
+                            warn!(self.log, "irc"; "error" => %msg);
+                        },
                         Command::Response(irc::proto::Response::RPL_ENDOFMOTD, _)
                         | Command::Response(irc::proto::Response::ERR_NOMOTD, _) => {
                             info!(self.log, "connected");
@@ -171,7 +174,7 @@ impl IrcTask {
                                     let cmd = BotCommand::Url(url.clone());
                                     let target = target.clone();
                                     let sender = client.sender();
-                                    info!(self.log, "command"; "command" => %cmd);
+                                    info!(self.log, "lookup"; "url" => %url, "channel" => %target, "nick" => %nick);
                                     // Should probably extract this to the future resolution bit
                                     let fut = self.handler.spawn(cmd).map_ok(move |res| {
                                         match *res {

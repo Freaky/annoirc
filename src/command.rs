@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -8,6 +9,7 @@ use futures::{channel::oneshot, future::Shared, prelude::*};
 use lru_time_cache::LruCache;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE, USER_AGENT};
 use scraper::{Html, Selector};
+use slog::{info, o, Logger};
 use tokio::time::timeout;
 use url::Url;
 
@@ -41,10 +43,19 @@ pub struct Response {
 
 #[derive(Clone)]
 pub struct CommandHandler {
+    log: Logger,
     config: ConfigMonitor,
     client: reqwest::Client,
     twitter: TwitterHandler,
     cache: Arc<Mutex<LruCache<BotCommand, Response>>>,
+}
+
+impl fmt::Display for BotCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Url(url) => write!(f, "Url({})", url),
+        }
+    }
 }
 
 impl std::fmt::Debug for CommandHandler {
@@ -62,9 +73,10 @@ impl std::fmt::Debug for CommandHandler {
 }
 
 impl CommandHandler {
-    pub fn new(config: ConfigMonitor) -> Self {
+    pub fn new(config: ConfigMonitor, log: Logger) -> Self {
         let cur = config.current();
         Self {
+            log,
             twitter: TwitterHandler::new(config.clone()),
             config,
             client: reqwest::ClientBuilder::new()
@@ -84,10 +96,14 @@ impl CommandHandler {
         command: BotCommand,
     ) -> Shared<oneshot::Receiver<Arc<Result<Info, Error>>>> {
         let mut cache = self.cache.lock().unwrap();
+        let log = self.log.new(o!("command" => command.to_string()));
 
         if let Some(res) = cache.get(&command) {
+            info!(log, "cached");
             return res.info.clone();
         }
+
+        info!(log, "execute");
 
         // Would this be better off just as a JoinHandle?
         let (tx, rx) = oneshot::channel::<Arc<Result<Info, Error>>>();
@@ -107,19 +123,27 @@ impl CommandHandler {
 
         tokio::spawn(async move {
             let res = match command {
-                BotCommand::Url(url) => timeout(max_runtime, handler.handle_url(url)).await,
+                BotCommand::Url(ref url) => timeout(max_runtime, handler.handle_url(url)).await,
             };
 
+            info!(log, "complete"; "result" => ?res);
+
             match res {
-                Ok(res) => tx.send(Arc::new(res)),
-                Err(_) => tx.send(Arc::new(Err(anyhow!("Timed out")))),
+                Ok(res) => {
+                    info!(log, "complete"; "result" => ?res);
+                    tx.send(Arc::new(res))
+                }
+                Err(_) => {
+                    info!(log, "timeout");
+                    tx.send(Arc::new(Err(anyhow!("Timed out"))))
+                }
             }
         });
 
         rx
     }
 
-    async fn handle_url(&self, url: Url) -> Result<Info, Error> {
+    async fn handle_url(&self, url: &Url) -> Result<Info, Error> {
         if self.config.current().twitter.bearer_token.is_some() {
             if let Some("twitter.com") = url.host_str() {
                 if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
@@ -141,7 +165,7 @@ impl CommandHandler {
         self.fetch_url(url).await.map(Info::Url)
     }
 
-    async fn fetch_url(&self, url: Url) -> Result<UrlInfo, Error> {
+    async fn fetch_url(&self, url: &Url) -> Result<UrlInfo, Error> {
         let config = self.config.current();
 
         let mut headers = HeaderMap::new();
@@ -157,7 +181,7 @@ impl CommandHandler {
 
         let mut res = self
             .client
-            .get(url)
+            .get(url.clone())
             .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
             .headers(headers)
             .send()

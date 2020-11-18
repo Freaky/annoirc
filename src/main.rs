@@ -41,7 +41,7 @@ async fn main() -> Result<(), Error> {
     .await?;
     let mut config = config_update.current();
 
-    let handler = CommandHandler::new(config_update.clone());
+    let handler = CommandHandler::new(config_update.clone(), log.clone());
     let mut networks = std::collections::HashSet::<String>::new();
     let mut connections = FuturesUnordered::new();
     let mut active = true;

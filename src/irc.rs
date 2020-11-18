@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Error;
 use egg_mode_text::url_entities;
@@ -12,6 +12,13 @@ use tokio::{stream::StreamExt, task::JoinHandle, time::Instant};
 use url::Url;
 
 use crate::{command::*, config::*, irc_string::*, twitter::*};
+
+#[derive(Debug)]
+struct CommandResponse {
+    log: Logger,
+    target: String,
+    info: Arc<Result<Info, Error>>,
+}
 
 #[derive(Debug)]
 pub struct IrcTask {
@@ -120,9 +127,7 @@ impl IrcTask {
                         client.send_quit("Disconnecting")?;
                     }
                 },
-                Some(futur) = pending.next() => {
-                    info!(self.log, "resolved"; "result" => ?futur);
-                },
+                Some(_) = pending.next() => { },
                 message = stream.next() => {
                     if message.is_none() {
                         break;
@@ -157,20 +162,18 @@ impl IrcTask {
                                     .filter_map(|url| parse_url(url.substr(content)).ok())
                                     .take(config.url.max_per_message as usize)
                                     .unique()
-                                    {
+                                {
                                     if limiter.check_key(&target.clone()).is_err() {
                                         warn!(self.log, "ratelimit"; "channel" => target, "nick" => nick);
                                         break;
                                     }
 
-                                    let urlstr = url.to_string();
-                                    let cmd = BotCommand::Url(url);
-                                    let sender = client.sender();
-                                    let logger = self.log.new(o!("url" => urlstr));
+                                    let cmd = BotCommand::Url(url.clone());
                                     let target = target.clone();
+                                    let sender = client.sender();
+                                    info!(self.log, "command"; "command" => ?cmd);
                                     // Should probably extract this to the future resolution bit
                                     let fut = self.handler.spawn(cmd).map_ok(move |res| {
-                                        info!(logger, "resolve"; "result" => ?res);
                                         match *res {
                                             Ok(Info::Url(ref info)) => {
                                                 let _ = sender.send_privmsg(

@@ -28,6 +28,47 @@ pub struct IrcTask {
     config: ConfigMonitor,
 }
 
+#[derive(Debug)]
+struct Backoff {
+    min: Duration,
+    max: Duration,
+    last_attempt: Option<Instant>,
+}
+
+impl Default for Backoff {
+    fn default() -> Self {
+        Self {
+            min: Duration::from_secs(10),
+            max: Duration::from_secs(240),
+            last_attempt: None,
+        }
+    }
+}
+
+// TODO: Add success/failure feedback. Not currently well defined by connect_loop
+impl Backoff {
+    fn next(&mut self) -> Option<Duration> {
+        let now = Instant::now();
+        let last = match self.last_attempt.replace(now) {
+            None => return None,
+            Some(attempt) => attempt
+        };
+
+        let duration = now - last;
+        let next_delay = if duration > self.max * 2 {
+            self.min
+        } else {
+            duration
+                .min(self.max / 2)
+                .max(self.min / 2)
+                * 2
+        };
+
+        // Truncate to nearest second
+        Some(next_delay - Duration::from_nanos(next_delay.subsec_nanos() as u64))
+    }
+}
+
 impl IrcTask {
     pub fn spawn(
         log: Logger,
@@ -51,14 +92,12 @@ impl IrcTask {
 
     async fn connect_loop(&mut self) {
         let mut conf = self.config.clone();
-        let mut prev_connection = Instant::now();
-        let mut next_connection = Instant::now();
+        let mut limiter = Backoff::default();
+        let mut delay = limiter.next();
 
         loop {
-            let delay = next_connection > Instant::now();
-
             tokio::select! {
-                conn = self.connection(), if !delay => {
+                conn = self.connection(), if delay.is_none() => {
                     match conn {
                         Ok(exit) => {
                             info!(self.log, "disconnected");
@@ -72,25 +111,15 @@ impl IrcTask {
                         }
                     }
 
-                    let now = Instant::now();
-                    let diff = now - prev_connection;
-                    prev_connection = now;
-
-                    let wait = if diff > Duration::from_secs(240) {
-                        10
-                    } else {
-                        diff
-                            .min(Duration::from_secs(120))
-                            .max(Duration::from_secs(5))
-                            .as_secs() * 2
-                    };
-                    let wait = Duration::from_secs(wait);
-
-                    info!(self.log, "sleep"; "delay" => ?wait);
-                    next_connection = now + wait;
+                    delay = limiter.next();
+                    if let Some(delay) = delay {
+                        info!(self.log, "sleep"; "delay" => ?delay);
+                    }
                 },
-                _ = tokio::time::delay_until(next_connection), if delay => { },
-                None = conf.next(), if delay => {
+                _ = tokio::time::delay_for(delay.unwrap_or_default()), if delay.is_some() => {
+                    delay = None;
+                },
+                None = conf.next(), if delay.is_some() => {
                     break;
                 }
             }

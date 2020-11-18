@@ -177,58 +177,8 @@ impl IrcTask {
                                     info!(self.log, "lookup"; "url" => %url, "channel" => %target, "nick" => %nick);
                                     // Should probably extract this to the future resolution bit
                                     let fut = self.handler.spawn(cmd).map_ok(move |res| {
-                                        match *res {
-                                            Ok(Info::Url(ref info)) => {
-                                                let _ = sender.send_privmsg(
-                                                    &target,
-                                                    format!(
-                                                        "[\x0303\x02\x02{}\x0f] \x0300\x02\x02{}\x0f",
-                                                        sanitize(info.url.host_str().unwrap_or(""), 30),
-                                                        info.title.trunc(380)
-                                                    )
-                                                );
-                                                if let Some(desc) = &info.desc {
-                                                    let _ = sender.send_privmsg(
-                                                        &target,
-                                                        format!(
-                                                            "[\x0303{}\x02\x02\x0f] \x0300\x02\x02{}\x0f",
-                                                            sanitize(info.url.host_str().unwrap_or(""), 30),
-                                                            desc.trunc(380)
-                                                        )
-                                                    );
-                                                }
-                                            },
-                                            Ok(Info::Tweet(ref tweet)) => {
-                                                let _ = sender.send_privmsg(
-                                                    &target,
-                                                    format_tweet(tweet, "Twitter")
-                                                );
-                                                if let Some(quote) = &tweet.quote {
-                                                    let _ = sender.send_privmsg(
-                                                        &target,
-                                                        format_tweet(quote, "Retweet")
-                                                    );
-                                                }
-                                                if let Some(retweet) = &tweet.retweet {
-                                                    let _ = sender.send_privmsg(
-                                                        &target,
-                                                        format_tweet(retweet, "Retweet")
-                                                    );
-                                                }
-                                            },
-                                            Ok(Info::Tweeter(ref user)) => {
-                                                let _ = sender.send_privmsg(
-                                                    &target,
-                                                    format_tweeter(user)
-                                                );
-                                                if let Some(tweet) = &user.status {
-                                                    let _ = sender.send_privmsg(
-                                                        &target,
-                                                        format_tweet(tweet, " Status")
-                                                    );
-                                                }
-                                            },
-                                            _ => ()
+                                        if let Ok(res) = &*res {
+                                            let _ = display_response(&res, &target, sender);
                                         }
                                     });
                                     pending.push(fut);
@@ -244,6 +194,63 @@ impl IrcTask {
 
         Ok(shutdown)
     }
+}
+
+fn display_response(info: &Info, target: &str, sender: Sender) -> Result<(), Error> {
+    match info {
+        Info::Url(ref info) => {
+            sender.send_privmsg(
+                &target,
+                format!(
+                    "[\x0303\x02\x02{}\x0f] \x0300\x02\x02{}\x0f",
+                    sanitize(info.url.host_str().unwrap_or(""), 30),
+                    info.title.trunc(380)
+                )
+            )?;
+            if let Some(desc) = &info.desc {
+                sender.send_privmsg(
+                    &target,
+                    format!(
+                        "[\x0303{}\x02\x02\x0f] \x0300\x02\x02{}\x0f",
+                        sanitize(info.url.host_str().unwrap_or(""), 30),
+                        desc.trunc(380)
+                    )
+                )?;
+            }
+        },
+        Info::Tweet(ref tweet) => {
+            sender.send_privmsg(
+                &target,
+                format_tweet(tweet, "Twitter")
+            )?;
+            if let Some(quote) = &tweet.quote {
+                sender.send_privmsg(
+                    &target,
+                    format_tweet(quote, "Retweet")
+                )?;
+            }
+            if let Some(retweet) = &tweet.retweet {
+                sender.send_privmsg(
+                    &target,
+                    format_tweet(retweet, "Retweet")
+                )?;
+            }
+        },
+        Info::Tweeter(ref user) => {
+            sender.send_privmsg(
+                &target,
+                format_tweeter(user)
+            )?;
+            if let Some(tweet) = &user.status {
+                sender.send_privmsg(
+                    &target,
+                    format_tweet(tweet, " Status")
+                )?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn format_tweet(tweet: &Tweet, tag: &str) -> String {

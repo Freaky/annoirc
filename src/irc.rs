@@ -209,7 +209,7 @@ fn display_response(info: &Info, target: &str, sender: Sender) -> Result<(), Err
                     "[\x0303\x02\x02{}\x0f] \x0300\x02\x02{}\x0f",
                     host,
                     info.title.trunc(380)
-                )
+                ),
             )?;
             if let Some(desc) = &info.desc {
                 sender.send_privmsg(
@@ -218,38 +218,23 @@ fn display_response(info: &Info, target: &str, sender: Sender) -> Result<(), Err
                         "[\x0303{}\x02\x02\x0f] \x0300\x02\x02{}\x0f",
                         host,
                         desc.trunc(380)
-                    )
+                    ),
                 )?;
             }
-        },
+        }
         Info::Tweet(ref tweet) => {
-            sender.send_privmsg(
-                &target,
-                format_tweet(tweet, "Twitter")
-            )?;
+            sender.send_privmsg(&target, format_tweet(tweet, "Twitter"))?;
             if let Some(quote) = &tweet.quote {
-                sender.send_privmsg(
-                    &target,
-                    format_tweet(quote, "Retweet")
-                )?;
+                sender.send_privmsg(&target, format_tweet(quote, "Retweet"))?;
             }
             if let Some(retweet) = &tweet.retweet {
-                sender.send_privmsg(
-                    &target,
-                    format_tweet(retweet, "Retweet")
-                )?;
+                sender.send_privmsg(&target, format_tweet(retweet, "Retweet"))?;
             }
-        },
+        }
         Info::Tweeter(ref user) => {
-            sender.send_privmsg(
-                &target,
-                format_tweeter(user)
-            )?;
+            sender.send_privmsg(&target, format_tweeter(user))?;
             if let Some(tweet) = &user.status {
-                sender.send_privmsg(
-                    &target,
-                    format_tweet(tweet, " Status")
-                )?;
+                sender.send_privmsg(&target, format_tweet(tweet, " Status"))?;
             }
         }
     }

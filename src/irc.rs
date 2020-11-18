@@ -175,7 +175,8 @@ impl IrcTask {
                         },
                         Command::PRIVMSG(target, content) => {
                             if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
-                                if nick == client.current_nickname() || content.starts_with('\x01') || !netconf.channels.contains(&target) {
+                                // Avoid responding to ourselves, CTCPs, coloured text (usually other bots), and any target we're not configured for
+                                if nick == client.current_nickname() || content.starts_with('\x01') || content.contains('\x03') || !netconf.channels.contains(&target) {
                                     continue;
                                 }
 

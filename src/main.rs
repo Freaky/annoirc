@@ -32,16 +32,12 @@ async fn main() -> Result<(), Error> {
         .fuse();
     let log = slog::Logger::root(drain, o!());
 
-    info!(log, "startup"; "version" => env!("CARGO_PKG_VERSION"), "config" => args.config.display());
+    info!(log, "startup"; "version" => env!("CARGO_PKG_VERSION"), "config" => args.config.display(), "pid" => std::process::id());
 
-    let mut config_update = ConfigMonitor::watch(
-        log.new(o!("config" => args.config.display().to_string())),
-        &args.config,
-    )
-    .await?;
+    let mut config_update = ConfigMonitor::watch(log.clone(), &args.config).await?;
     let mut config = config_update.current();
 
-    let handler = CommandHandler::new(config_update.clone(), log.clone());
+    let handler = CommandHandler::new(log.clone(), config_update.clone());
     let mut networks = std::collections::HashSet::<String>::new();
     let mut connections = FuturesUnordered::new();
     let mut active = true;

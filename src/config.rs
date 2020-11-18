@@ -8,7 +8,7 @@ use anyhow::Error;
 use irc::client::prelude::Config;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
-use slog::{error, info, Logger};
+use slog::{error, info, o, Logger};
 use tokio::sync::watch;
 
 #[derive(Debug, Clone)]
@@ -107,6 +107,8 @@ impl ConfigMonitor {
     /// Begin monitoring the specified configuration file, if it exists
     pub async fn watch<P: Into<PathBuf>>(log: Logger, path: P) -> Result<ConfigMonitor, Error> {
         let path = path.into();
+        let signal_log = log.clone();
+        let log = log.new(o!("config" => path.display().to_string()));
 
         let config = BotConfig::load(&path).await?;
         let (tx, mut rx) = watch::channel(Arc::new(config));
@@ -116,7 +118,7 @@ impl ConfigMonitor {
 
         let tx = ConfigUpdater(Arc::new(Mutex::new(Some(tx))));
         let txx = tx.clone();
-        let logx = log.clone();
+        let logx = signal_log.clone();
         tokio::spawn(async move {
             if tokio::signal::ctrl_c().await.is_ok() {
                 info!(logx, "INTERRUPT");
@@ -129,7 +131,7 @@ impl ConfigMonitor {
             // TODO: merge all these into a task with a select loop
             use tokio::signal::unix::{signal, SignalKind};
 
-            let logx = log.clone();
+            let logx = signal_log.clone();
             let txx = tx.clone();
             tokio::spawn(async move {
                 if signal(SignalKind::terminate())
@@ -147,16 +149,15 @@ impl ConfigMonitor {
                 let mut hups = signal(SignalKind::hangup()).unwrap();
 
                 while hups.recv().await.is_some() {
-                    info!(log, "SIGHUP");
+                    info!(signal_log, "SIGHUP");
 
                     match BotConfig::load(&path).await {
                         Ok(c) => {
-                            // TODO: compare with existing and only update if different
-                            info!(log, "reload");
+                            info!(log, "reload"; "status" => "updating");
                             tx.update(c);
                         }
                         Err(e) => {
-                            error!(log, "reload"; "error" => %e);
+                            error!(log, "reload"; "status" => "ignored", "error" => %e);
                         }
                     }
                 }

@@ -69,7 +69,7 @@ impl std::fmt::Debug for CommandHandler {
 }
 
 impl CommandHandler {
-    pub fn new(config: ConfigMonitor, log: Logger) -> Self {
+    pub fn new(log: Logger, config: ConfigMonitor) -> Self {
         let cur = config.current();
         Self {
             log,

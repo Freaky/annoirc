@@ -175,7 +175,6 @@ impl IrcTask {
                                     let target = target.clone();
                                     let sender = client.sender();
                                     info!(self.log, "lookup"; "url" => %url, "channel" => %target, "nick" => %nick);
-                                    // Should probably extract this to the future resolution bit
                                     let fut = self.handler.spawn(cmd).map_ok(move |res| {
                                         if let Ok(res) = &*res {
                                             let _ = display_response(&res, &target, sender);
@@ -199,11 +198,12 @@ impl IrcTask {
 fn display_response(info: &Info, target: &str, sender: Sender) -> Result<(), Error> {
     match info {
         Info::Url(ref info) => {
+            let host = sanitize(info.url.host_str().unwrap_or(""), 30);
             sender.send_privmsg(
                 &target,
                 format!(
                     "[\x0303\x02\x02{}\x0f] \x0300\x02\x02{}\x0f",
-                    sanitize(info.url.host_str().unwrap_or(""), 30),
+                    host,
                     info.title.trunc(380)
                 )
             )?;
@@ -212,7 +212,7 @@ fn display_response(info: &Info, target: &str, sender: Sender) -> Result<(), Err
                     &target,
                     format!(
                         "[\x0303{}\x02\x02\x0f] \x0300\x02\x02{}\x0f",
-                        sanitize(info.url.host_str().unwrap_or(""), 30),
+                        host,
                         desc.trunc(380)
                     )
                 )?;

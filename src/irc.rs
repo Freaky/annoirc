@@ -171,7 +171,7 @@ impl IrcTask {
                                     let cmd = BotCommand::Url(url.clone());
                                     let target = target.clone();
                                     let sender = client.sender();
-                                    info!(self.log, "command"; "command" => ?cmd);
+                                    info!(self.log, "command"; "command" => %cmd);
                                     // Should probably extract this to the future resolution bit
                                     let fut = self.handler.spawn(cmd).map_ok(move |res| {
                                         match *res {

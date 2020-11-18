@@ -99,7 +99,7 @@ impl CommandHandler {
         let log = self.log.new(o!("command" => command.to_string()));
 
         if let Some(res) = cache.get(&command) {
-            info!(log, "cached");
+            info!(log, "cached"; "result" => ?res);
             return res.info.clone();
         }
 

@@ -9,6 +9,7 @@ use futures::{channel::oneshot, future::Shared, prelude::*};
 use lru_time_cache::LruCache;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE, USER_AGENT};
 use scraper::{Html, Selector};
+use serde::Deserialize;
 use slog::{info, o, Logger};
 use tokio::time::timeout;
 use url::Url;
@@ -33,6 +34,12 @@ pub enum Info {
     Url(UrlInfo),
     Tweet(Tweet),
     Tweeter(Tweeter),
+}
+
+#[derive(Debug, Deserialize)]
+struct Wiki {
+    title: String,
+    extract: String,
 }
 
 type Response = Shared<oneshot::Receiver<Arc<Result<Info, Error>>>>;
@@ -161,7 +168,56 @@ impl CommandHandler {
             }
         }
 
+        if let Some(domain) = url.host_str() {
+            if domain.ends_with(".wikipedia.org") {
+                let lang = domain.split('.').next().unwrap();
+
+                if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
+                    if path.len() > 1 && path[0] == "wiki" {
+                        let article = path[1];
+                        return self.fetch_wikipedia(lang, article).await.map(Info::Url);
+                    }
+                }
+            }
+        }
+
         self.fetch_url(url).await.map(Info::Url)
+    }
+
+    async fn fetch_wikipedia(&self, lang: &str, article: &str) -> Result<UrlInfo, Error> {
+        let config = self.config.current();
+
+        let url = Url::parse(&format!(
+            "https://{}.wikipedia.org/api/rest_v1/page/summary/{}",
+            lang, article
+        ))?;
+
+        let mut headers = HeaderMap::new();
+        // These are validated on config load
+        headers.insert(
+            ACCEPT_LANGUAGE,
+            HeaderValue::from_str(&config.url.accept_language).unwrap(),
+        );
+        headers.insert(
+            USER_AGENT,
+            HeaderValue::from_str(&config.url.user_agent).unwrap(),
+        );
+
+        let wiki = self
+            .client
+            .get(url.clone())
+            .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
+            .headers(headers)
+            .send()
+            .await?
+            .json::<Wiki>()
+            .await?;
+
+        Ok(UrlInfo {
+            url,
+            title: wiki.title.into(),
+            desc: Some(wiki.extract.into()),
+        })
     }
 
     async fn fetch_url(&self, url: &Url) -> Result<UrlInfo, Error> {

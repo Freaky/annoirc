@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Error;
 use clap::Clap;
 use futures::stream::FuturesUnordered;
-use slog::{info, o, Drain, Level};
+use slog::{o, warn, Drain, Level};
 use tokio::stream::StreamExt;
 
 mod command;
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Error> {
         .fuse();
     let log = slog::Logger::root(drain, o!());
 
-    info!(log, "startup"; "version" => env!("CARGO_PKG_VERSION"), "config" => args.config.display(), "pid" => std::process::id());
+    warn!(log, "startup"; "version" => env!("CARGO_PKG_VERSION"), "config" => args.config.display(), "pid" => std::process::id());
 
     let mut config_update = ConfigMonitor::watch(log.clone(), &args.config).await?;
     let mut config = config_update.current();
@@ -73,7 +73,7 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    info!(log, "exit");
+    warn!(log, "exit");
 
     Ok(())
 }

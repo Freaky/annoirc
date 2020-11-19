@@ -102,7 +102,7 @@ impl IrcTask {
                 conn = self.connection(), if delay.is_none() => {
                     match conn {
                         Ok(exit) => {
-                            info!(self.log, "disconnected");
+                            warn!(self.log, "disconnected");
 
                             if exit {
                                 break;
@@ -139,7 +139,7 @@ impl IrcTask {
 
         let netconf = netconf.unwrap().clone();
 
-        info!(self.log, "connect"; "server" => &netconf.server, "port" => &netconf.port);
+        warn!(self.log, "connect"; "server" => &netconf.server, "port" => &netconf.port);
 
         let mut shutdown = false;
 
@@ -159,17 +159,17 @@ impl IrcTask {
                         config = newconf;
                         if let Some(new_netconf) = config.network.get(&self.name) {
                             if *new_netconf != netconf {
-                                info!(self.log, "reconnecting");
+                                warn!(self.log, "reconnecting");
                                 client.send_quit("Reconnecting")?;
                             }
                         } else {
                             shutdown = true;
-                            info!(self.log, "deconfigured");
+                            warn!(self.log, "deconfigured");
                             client.send_quit("Disconnecting")?;
                         }
                     } else {
                         shutdown = true;
-                        info!(self.log, "disconnecting");
+                        warn!(self.log, "disconnecting");
                         client.send_quit("Disconnecting")?;
                     }
                 },
@@ -183,27 +183,27 @@ impl IrcTask {
 
                     match &message.command {
                         Command::ERROR(ref msg) => {
-                            warn!(self.log, "irc"; "error" => %msg);
+                            error!(self.log, "irc"; "error" => %msg);
                         },
                         Command::Response(irc::proto::Response::RPL_ENDOFMOTD, _)
                         | Command::Response(irc::proto::Response::ERR_NOMOTD, _) => {
                             self.throttle.success();
-                            info!(self.log, "connected"; "nick" => client.current_nickname());
+                            warn!(self.log, "connected"; "nick" => client.current_nickname());
                         },
                         Command::JOIN(ref c, None, None) => {
                             if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
                                 if nick == client.current_nickname() {
-                                    info!(self.log, "join"; "channel" => c);
+                                    warn!(self.log, "join"; "channel" => c);
                                 }
                             }
                         }
                         Command::INVITE(target, channel) if target == client.current_nickname() && netconf.channels.contains(&channel) => {
-                            info!(self.log, "invited"; "channel" => channel);
+                            warn!(self.log, "invited"; "channel" => channel, "source" => message_source(&message));
                             // TODO: channel keys
                             client.send_join(channel)?;
                         },
                         Command::KICK(channel, target, reason) if target == client.current_nickname() => {
-                            info!(self.log, "kicked"; "channel" => channel, "reason" => reason);
+                            warn!(self.log, "kicked"; "channel" => channel, "reason" => reason, "source" => message_source(&message));
                         },
                         Command::PRIVMSG(target, content) => {
                             if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
@@ -219,14 +219,14 @@ impl IrcTask {
                                     .unique()
                                 {
                                     if limiter.check_key(&target.clone()).is_err() {
-                                        warn!(self.log, "ratelimit"; "channel" => target, "nick" => nick);
+                                        warn!(self.log, "ratelimit"; "channel" => target, "source" => nick);
                                         break;
                                     }
 
                                     let cmd = BotCommand::Url(url.clone());
                                     let target = target.clone();
                                     let sender = client.sender();
-                                    info!(self.log, "lookup"; "url" => %url, "channel" => %target, "nick" => %nick);
+                                    info!(self.log, "lookup"; "url" => %url, "channel" => %target, "source" => %nick);
                                     let fut = self.handler.spawn(cmd).map_ok(move |res| {
                                         if let Ok(res) = &*res {
                                             let _ = display_response(&res, &target, sender);
@@ -244,6 +244,14 @@ impl IrcTask {
         }
 
         Ok(shutdown)
+    }
+}
+
+fn message_source(msg: &Message) -> &str {
+    match &msg.prefix {
+        Some(Prefix::Nickname(nick, _, _)) => nick,
+        Some(Prefix::ServerName(server)) => server,
+        None => "unknown"
     }
 }
 

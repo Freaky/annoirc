@@ -8,7 +8,7 @@ use anyhow::Error;
 use irc::client::prelude::Config;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
-use slog::{error, info, Logger};
+use slog::{error, info, warn, Logger};
 use tokio::sync::watch;
 
 #[derive(Debug, Clone)]
@@ -120,7 +120,7 @@ impl ConfigMonitor {
         {
             tokio::spawn(async move {
                 if tokio::signal::ctrl_c().await.is_ok() {
-                    info!(log, "shutdown"; "signal" => "interrupt");
+                    warn!(log, "shutdown"; "signal" => "interrupt");
                     tx.close();
                 }
             });
@@ -136,21 +136,21 @@ impl ConfigMonitor {
             tokio::spawn(async move {
                 let mut term = signal(SignalKind::terminate())
                     .unwrap()
-                    .map(|_| "SIGTERM")
-                    .merge(signal(SignalKind::interrupt()).unwrap().map(|_| "SIGINT"));
+                    .map(|_| "TERM")
+                    .merge(signal(SignalKind::interrupt()).unwrap().map(|_| "INT"));
                 let mut hup = signal(SignalKind::hangup()).unwrap();
 
                 loop {
                     tokio::select! {
                         Some(sig) = term.next() => {
-                            info!(log, "shutdown"; "signal" => sig);
+                            warn!(log, "shutdown"; "signal" => sig);
                             tx.close();
                             break;
                         },
                         Some(_) = hup.next() => {
                             match BotConfig::load(&path).await {
                                 Ok(c) => {
-                                    info!(log, "reload"; "status" => "updating", "path" => %path.display());
+                                    warn!(log, "reload"; "status" => "updating", "path" => %path.display());
                                     tx.update(c);
                                 }
                                 Err(e) => {

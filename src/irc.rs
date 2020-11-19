@@ -52,17 +52,14 @@ impl Backoff {
         let now = Instant::now();
         let last = match self.last_attempt.replace(now) {
             None => return None,
-            Some(attempt) => attempt
+            Some(attempt) => attempt,
         };
 
         let duration = now - last;
         let next_delay = if duration > self.max * 2 {
             self.min
         } else {
-            duration
-                .min(self.max / 2)
-                .max(self.min / 2)
-                * 2
+            duration.min(self.max / 2).max(self.min / 2) * 2
         };
 
         // Truncate to nearest second
@@ -87,7 +84,7 @@ impl IrcTask {
             handler,
             config,
             name,
-            throttle: Backoff::default()
+            throttle: Backoff::default(),
         };
 
         tokio::spawn(async move {

@@ -73,7 +73,7 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    info!(log, "shutdown");
+    info!(log, "exit");
 
     Ok(())
 }

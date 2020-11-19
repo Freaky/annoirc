@@ -8,7 +8,7 @@ use anyhow::Error;
 use irc::client::prelude::Config;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
-use slog::{error, info, o, Logger};
+use slog::{error, info, Logger};
 use tokio::sync::watch;
 
 #[derive(Debug, Clone)]
@@ -107,8 +107,6 @@ impl ConfigMonitor {
     /// Begin monitoring the specified configuration file, if it exists
     pub async fn watch<P: Into<PathBuf>>(log: Logger, path: P) -> Result<ConfigMonitor, Error> {
         let path = path.into();
-        let signal_log = log.clone();
-        let log = log.new(o!("config" => path.display().to_string()));
 
         let config = BotConfig::load(&path).await?;
         let (tx, mut rx) = watch::channel(Arc::new(config));
@@ -117,47 +115,52 @@ impl ConfigMonitor {
         let _ = rx.recv().await;
 
         let tx = ConfigUpdater(Arc::new(Mutex::new(Some(tx))));
-        let txx = tx.clone();
-        let logx = signal_log.clone();
-        tokio::spawn(async move {
-            if tokio::signal::ctrl_c().await.is_ok() {
-                info!(logx, "INTERRUPT");
-                txx.close();
-            }
-        });
+
+        #[cfg(not(unix))]
+        {
+            tokio::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    info!(log, "shutdown"; "signal" => "interrupt");
+                    tx.close();
+                }
+            });
+        }
 
         #[cfg(unix)]
         {
-            // TODO: merge all these into a task with a select loop
-            use tokio::signal::unix::{signal, SignalKind};
+            use tokio::{
+                signal::unix::{signal, SignalKind},
+                stream::StreamExt,
+            };
 
-            let logx = signal_log.clone();
-            let txx = tx.clone();
             tokio::spawn(async move {
-                if signal(SignalKind::terminate())
+                let mut term = signal(SignalKind::terminate())
                     .unwrap()
-                    .recv()
-                    .await
-                    .is_some()
-                {
-                    info!(logx, "SIGTERM");
-                    txx.close();
-                }
-            });
+                    .map(|_| "SIGTERM")
+                    .merge(signal(SignalKind::interrupt()).unwrap().map(|_| "SIGINT"));
+                let mut hup = signal(SignalKind::hangup()).unwrap();
 
-            tokio::spawn(async move {
-                let mut hups = signal(SignalKind::hangup()).unwrap();
-
-                while hups.recv().await.is_some() {
-                    info!(signal_log, "SIGHUP");
-
-                    match BotConfig::load(&path).await {
-                        Ok(c) => {
-                            info!(log, "reload"; "status" => "updating");
-                            tx.update(c);
-                        }
-                        Err(e) => {
-                            error!(log, "reload"; "status" => "ignored", "error" => %e);
+                loop {
+                    tokio::select! {
+                        Some(sig) = term.next() => {
+                            info!(log, "shutdown"; "signal" => sig);
+                            tx.close();
+                            break;
+                        },
+                        Some(_) = hup.next() => {
+                            match BotConfig::load(&path).await {
+                                Ok(c) => {
+                                    info!(log, "reload"; "status" => "updating", "path" => %path.display());
+                                    tx.update(c);
+                                }
+                                Err(e) => {
+                                    error!(log, "reload"; "status" => "ignored", "error" => %e, "path" => %path.display());
+                                }
+                            }
+                        },
+                        else => {
+                            info!(log, "signal"; "status" => "loop exit");
+                            break;
                         }
                     }
                 }

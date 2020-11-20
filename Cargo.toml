@@ -7,31 +7,31 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-irc = { git = "https://github.com/aatxe/irc.git", branch = "develop", features = ["tls-rust", "serde"], default-features = false }
-tokio = { version = "0.2", features = ["full"] }
+anyhow = "1.0.34"
+chrono = "0.4.19"
+clap = "3.0.0-beta.2"
+egg-mode = { version = "0.15.0", features = ["rustls"], default-features = false }
+egg-mode-text = { git = "https://github.com/Freaky/egg-mode-text.git", branch = "update-deps" }
 futures = "0.3.8"
+governor = "0.3.1"
+html-escape = "0.2.6"
+ip_rfc = "0.1.0"
+irc = { git = "https://github.com/aatxe/irc.git", branch = "develop", features = ["tls-rust", "serde"], default-features = false }
+itertools = "0.9.0"
+lazy_static = "1.4.0"
+log = "0.4.11"
+lru_time_cache = "0.11.2"
+mime = "0.3.16"
+nonzero_ext = "0.2.0"
+regex = "1.4.2"
+reqwest = { version = "0.10.8", features = ["brotli", "cookies", "gzip", "json", "rustls-tls", "rustls-tls-webpki-roots"], default-features = false }
+scraper = "0.12.0"
+serde = "1.0.117"
+serde_json = "1.0.59"
 slog = "2.5.2"
 slog-async = "2.5.0"
 slog-term = "2.6.0"
-reqwest = { version = "0.10.8", features = ["brotli", "cookies", "gzip", "json", "rustls-tls", "rustls-tls-webpki-roots"], default-features = false }
-scraper = "0.12.0"
-egg-mode-text = { git = "https://github.com/Freaky/egg-mode-text.git", branch = "update-deps" }
-anyhow = "1.0.34"
-serde_json = "1.0.59"
-serde = "1.0.117"
-egg-mode = { version = "0.15.0", features = ["rustls"], default-features = false }
-ip_rfc = "0.1.0"
-regex = "1.4.2"
-log = "0.4.11"
-itertools = "0.9.0"
-lazy_static = "1.4.0"
-url = "2.2"
-clap = "3.0.0-beta.2"
+tokio = { version = "0.2", features = ["full"] }
 toml = "0.5.7"
-html-escape = "0.2.6"
-governor = "0.3.1"
-nonzero_ext = "0.2.0"
 unicode-segmentation = "1.7.0"
-mime = "0.3.16"
-chrono = "0.4.19"
-lru_time_cache = "0.11.2"
+url = "2.2"

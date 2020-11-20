@@ -1,13 +1,14 @@
 use std::{
     collections::HashMap,
+    convert::TryFrom,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use irc::client::prelude::Config;
 use reqwest::header::HeaderValue;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer};
 use slog::{error, crit, info, warn, Logger};
 use tokio::sync::watch;
 
@@ -17,7 +18,7 @@ pub struct ConfigMonitor(watch::Receiver<Arc<BotConfig>>);
 #[derive(Debug, Clone)]
 pub struct ConfigUpdater(Arc<Mutex<Option<watch::Sender<Arc<BotConfig>>>>>);
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct BotConfig {
     pub command: CommandConfig,
@@ -28,23 +29,25 @@ pub struct BotConfig {
     pub network: HashMap<String, Config>,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct TwitterConfig {
     pub bearer_token: Option<String>,
 }
 
-#[derive(Serialize, Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct UrlConfig {
     pub max_per_message: u8,
     pub http_timeout_secs: u8,
     pub globally_routable_only: bool,
-    pub user_agent: String,
-    pub accept_language: String,
+    #[serde(deserialize_with = "parse_header_value")]
+    pub user_agent: HeaderValue,
+    #[serde(deserialize_with = "parse_header_value")]
+    pub accept_language: HeaderValue,
 }
 
-#[derive(Serialize, Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct CommandConfig {
     pub max_concurrency: u8,
@@ -53,15 +56,20 @@ pub struct CommandConfig {
     pub cache_entries: u32,
 }
 
+fn parse_header_value<'de, D>(d: D) -> Result<HeaderValue, D::Error> where D: Deserializer<'de> {
+    let s = String::deserialize(d)?;
+    HeaderValue::try_from(s).map_err(serde::de::Error::custom)
+}
+
 impl Default for UrlConfig {
     fn default() -> Self {
         Self {
             max_per_message: 3,
             http_timeout_secs: 10,
             globally_routable_only: true,
-            user_agent: "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81"
-                .to_string(),
-            accept_language: "en,*;q=0.5".to_string(),
+            user_agent: HeaderValue::try_from("Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81")
+                .unwrap(),
+            accept_language: HeaderValue::try_from("en,*;q=0.5").unwrap(),
         }
     }
 }
@@ -77,7 +85,7 @@ impl Default for CommandConfig {
     }
 }
 
-#[derive(Serialize, Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct TemplateConfig {
     pub title: String,
@@ -97,10 +105,6 @@ impl BotConfig {
     async fn load(path: &Path) -> Result<BotConfig> {
         let config = tokio::fs::read_to_string(&path).await?;
         let config: BotConfig = toml::from_str(&config)?;
-        HeaderValue::from_str(&config.url.accept_language)
-            .context("url.accept_language contains invalid characters")?;
-        HeaderValue::from_str(&config.url.user_agent)
-            .context("url.user_agent contains invalid characters")?;
         Ok(config)
     }
 }

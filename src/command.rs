@@ -7,7 +7,7 @@ use std::{
 use anyhow::{anyhow, Result};
 use futures::{channel::oneshot, future::Shared, prelude::*};
 use lru_time_cache::LruCache;
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE, USER_AGENT};
+use reqwest::header::{HeaderMap, ACCEPT_LANGUAGE, USER_AGENT};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use slog::{info, o, Logger};
@@ -184,30 +184,32 @@ impl CommandHandler {
         self.fetch_url(url).await.map(Info::Url)
     }
 
-    async fn fetch_wikipedia(&self, lang: &str, article: &str) -> Result<UrlInfo> {
+    fn http_get(&self, url: &Url) -> reqwest::RequestBuilder {
         let config = self.config.current();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            ACCEPT_LANGUAGE,
+            config.url.accept_language.clone(),
+        );
+        headers.insert(
+            USER_AGENT,
+            config.url.user_agent.clone(),
+        );
 
+        self
+            .client
+            .get(url.clone())
+            .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
+            .headers(headers)
+    }
+
+    async fn fetch_wikipedia(&self, lang: &str, article: &str) -> Result<UrlInfo> {
         let url = Url::parse(&format!(
             "https://{}.wikipedia.org/api/rest_v1/page/summary/{}",
             lang, article
         ))?;
 
-        let mut headers = HeaderMap::new();
-        // These are validated on config load
-        headers.insert(
-            ACCEPT_LANGUAGE,
-            HeaderValue::from_str(&config.url.accept_language).unwrap(),
-        );
-        headers.insert(
-            USER_AGENT,
-            HeaderValue::from_str(&config.url.user_agent).unwrap(),
-        );
-
-        let wiki = self
-            .client
-            .get(url.clone())
-            .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
-            .headers(headers)
+        let wiki = self.http_get(&url)
             .send()
             .await?
             .json::<Wiki>()
@@ -223,22 +225,7 @@ impl CommandHandler {
     async fn fetch_url(&self, url: &Url) -> Result<UrlInfo> {
         let config = self.config.current();
 
-        let mut headers = HeaderMap::new();
-        // These are validated on config load
-        headers.insert(
-            ACCEPT_LANGUAGE,
-            HeaderValue::from_str(&config.url.accept_language).unwrap(),
-        );
-        headers.insert(
-            USER_AGENT,
-            HeaderValue::from_str(&config.url.user_agent).unwrap(),
-        );
-
-        let mut res = self
-            .client
-            .get(url.clone())
-            .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
-            .headers(headers)
+        let mut res = self.http_get(&url)
             .send()
             .await?;
 

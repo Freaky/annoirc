@@ -187,17 +187,10 @@ impl CommandHandler {
     fn http_get(&self, url: &Url) -> reqwest::RequestBuilder {
         let config = self.config.current();
         let mut headers = HeaderMap::new();
-        headers.insert(
-            ACCEPT_LANGUAGE,
-            config.url.accept_language.clone(),
-        );
-        headers.insert(
-            USER_AGENT,
-            config.url.user_agent.clone(),
-        );
+        headers.insert(ACCEPT_LANGUAGE, config.url.accept_language.clone());
+        headers.insert(USER_AGENT, config.url.user_agent.clone());
 
-        self
-            .client
+        self.client
             .get(url.clone())
             .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
             .headers(headers)
@@ -209,11 +202,7 @@ impl CommandHandler {
             lang, article
         ))?;
 
-        let wiki = self.http_get(&url)
-            .send()
-            .await?
-            .json::<Wiki>()
-            .await?;
+        let wiki = self.http_get(&url).send().await?.json::<Wiki>().await?;
 
         Ok(UrlInfo {
             url,
@@ -225,9 +214,7 @@ impl CommandHandler {
     async fn fetch_url(&self, url: &Url) -> Result<UrlInfo> {
         let config = self.config.current();
 
-        let mut res = self.http_get(&url)
-            .send()
-            .await?;
+        let mut res = self.http_get(&url).send().await?;
 
         if !res.status().is_success() {
             return Err(anyhow!("Status {}", res.status()));

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::Clap;
 use futures::stream::FuturesUnordered;
-use slog::{o, warn, crit, Logger, Drain, Level};
+use slog::{crit, o, warn, Drain, Level, Logger};
 use tokio::stream::StreamExt;
 
 mod command;

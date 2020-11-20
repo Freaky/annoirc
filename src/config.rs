@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 use irc::client::prelude::Config;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Deserializer};
-use slog::{error, crit, info, warn, Logger};
+use slog::{crit, error, info, warn, Logger};
 use tokio::sync::watch;
 
 #[derive(Debug, Clone)]
@@ -56,7 +56,10 @@ pub struct CommandConfig {
     pub cache_entries: u32,
 }
 
-fn parse_header_value<'de, D>(d: D) -> Result<HeaderValue, D::Error> where D: Deserializer<'de> {
+fn parse_header_value<'de, D>(d: D) -> Result<HeaderValue, D::Error>
+where
+    D: Deserializer<'de>,
+{
     let s = String::deserialize(d)?;
     HeaderValue::try_from(s).map_err(serde::de::Error::custom)
 }
@@ -67,8 +70,10 @@ impl Default for UrlConfig {
             max_per_message: 3,
             http_timeout_secs: 10,
             globally_routable_only: true,
-            user_agent: HeaderValue::try_from("Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81")
-                .unwrap(),
+            user_agent: HeaderValue::try_from(
+                "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81",
+            )
+            .unwrap(),
             accept_language: HeaderValue::try_from("en,*;q=0.5").unwrap(),
         }
     }

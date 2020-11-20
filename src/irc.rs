@@ -251,7 +251,7 @@ fn message_source(msg: &Message) -> &str {
     match &msg.prefix {
         Some(Prefix::Nickname(nick, _, _)) => nick,
         Some(Prefix::ServerName(server)) => server,
-        None => "unknown"
+        None => "unknown",
     }
 }
 

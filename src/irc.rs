@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::Error;
+use anyhow::Result;
 use egg_mode_text::url_entities;
 use futures::{stream::FuturesUnordered, TryFutureExt};
 use governor::{Quota, RateLimiter};
@@ -17,7 +17,7 @@ use crate::{command::*, config::*, irc_string::*, twitter::*};
 struct CommandResponse {
     log: Logger,
     target: String,
-    info: Arc<Result<Info, Error>>,
+    info: Arc<Result<Info>>,
 }
 
 #[derive(Debug)]
@@ -128,7 +128,7 @@ impl IrcTask {
         }
     }
 
-    async fn connection(&mut self) -> Result<bool, Error> {
+    async fn connection(&mut self) -> Result<bool> {
         let mut config = self.config.current();
 
         let netconf = config.network.get(&self.name);
@@ -255,7 +255,7 @@ fn message_source(msg: &Message) -> &str {
     }
 }
 
-fn display_response(info: &Info, target: &str, sender: Sender) -> Result<(), Error> {
+fn display_response(info: &Info, target: &str, sender: Sender) -> Result<()> {
     match info {
         Info::Url(ref info) => {
             let host = sanitize(info.url.host_str().unwrap_or(""), 30);

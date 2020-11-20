@@ -4,11 +4,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::Error;
+use anyhow::{anyhow, Context, Result};
 use irc::client::prelude::Config;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Serialize};
-use slog::{error, info, warn, Logger};
+use slog::{error, crit, info, warn, Logger};
 use tokio::sync::watch;
 
 #[derive(Debug, Clone)]
@@ -94,27 +94,33 @@ impl Default for TemplateConfig {
 }
 
 impl BotConfig {
-    async fn load(path: &Path) -> Result<BotConfig, anyhow::Error> {
+    async fn load(path: &Path) -> Result<BotConfig> {
         let config = tokio::fs::read_to_string(&path).await?;
         let config: BotConfig = toml::from_str(&config)?;
-        HeaderValue::from_str(&config.url.accept_language)?;
-        HeaderValue::from_str(&config.url.user_agent)?;
+        HeaderValue::from_str(&config.url.accept_language)
+            .context("url.accept_language contains invalid characters")?;
+        HeaderValue::from_str(&config.url.user_agent)
+            .context("url.user_agent contains invalid characters")?;
         Ok(config)
     }
 }
 
 impl ConfigMonitor {
     /// Begin monitoring the specified configuration file, if it exists
-    pub async fn watch<P: Into<PathBuf>>(log: Logger, path: P) -> Result<ConfigMonitor, Error> {
+    pub async fn watch<P: Into<PathBuf>>(log: Logger, path: P) -> Result<ConfigMonitor> {
         let path = path.into();
 
-        let config = BotConfig::load(&path).await?;
+        let config = BotConfig::load(&path).await.map_err(|e| {
+            crit!(log, "load"; "status" => "failed", "error" => %e, "path" => %path.display());
+            anyhow!("Failed loading initial configuration")
+        })?;
         let (tx, mut rx) = watch::channel(Arc::new(config));
 
         // Discard the initial configuration
         let _ = rx.recv().await;
 
         let tx = ConfigUpdater(Arc::new(Mutex::new(Some(tx))));
+        let rx = ConfigMonitor(rx);
 
         #[cfg(not(unix))]
         {
@@ -167,7 +173,7 @@ impl ConfigMonitor {
             });
         }
 
-        Ok(ConfigMonitor(rx))
+        Ok(rx)
     }
 
     /// Retrieve a copy of the current configuration

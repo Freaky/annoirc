@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use anyhow::{anyhow, Error};
+use anyhow::{anyhow, Result};
 use egg_mode::{tweet, user, RateLimit};
 
 use crate::{config::*, irc_string::*};
@@ -93,7 +93,7 @@ impl TwitterHandler {
 
     // TODO: Rate limit handling is a bit racy
     // Replace t.com redirections with original URLs via UrlEntities if they're not too long
-    pub async fn fetch_tweet(&self, id: u64) -> Result<Tweet, Error> {
+    pub async fn fetch_tweet(&self, id: u64) -> Result<Tweet> {
         let token = self.get_token()?;
 
         let resp = egg_mode::tweet::show(id, &token).await?;
@@ -101,7 +101,7 @@ impl TwitterHandler {
         Ok(resp.response.into())
     }
 
-    pub async fn fetch_tweeter(&self, id: &str) -> Result<Tweeter, Error> {
+    pub async fn fetch_tweeter(&self, id: &str) -> Result<Tweeter> {
         let token = self.get_token()?;
 
         let resp = egg_mode::user::show(id.to_string(), &token).await?;
@@ -109,7 +109,7 @@ impl TwitterHandler {
         Ok(resp.response.into())
     }
 
-    fn get_token(&self) -> Result<egg_mode::auth::Token, Error> {
+    fn get_token(&self) -> Result<egg_mode::auth::Token> {
         if self
             .limiter
             .lock()

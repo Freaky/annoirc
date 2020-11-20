@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Error};
+use anyhow::{anyhow, Result};
 use futures::{channel::oneshot, future::Shared, prelude::*};
 use lru_time_cache::LruCache;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_LANGUAGE, USER_AGENT};
@@ -42,7 +42,7 @@ struct Wiki {
     extract: String,
 }
 
-type Response = Shared<oneshot::Receiver<Arc<Result<Info, Error>>>>;
+type Response = Shared<oneshot::Receiver<Arc<Result<Info>>>>;
 
 #[derive(Clone)]
 pub struct CommandHandler {
@@ -120,7 +120,7 @@ impl CommandHandler {
         info!(log, "execute");
 
         // Would this be better off just as a JoinHandle?
-        let (tx, rx) = oneshot::channel::<Arc<Result<Info, Error>>>();
+        let (tx, rx) = oneshot::channel::<Arc<Result<Info>>>();
         let rx = rx.shared();
 
         cache.insert(command.clone(), rx.clone());
@@ -149,7 +149,7 @@ impl CommandHandler {
         rx
     }
 
-    async fn handle_url(&self, url: &Url) -> Result<Info, Error> {
+    async fn handle_url(&self, url: &Url) -> Result<Info> {
         if self.config.current().twitter.bearer_token.is_some() {
             if let Some("twitter.com") = url.host_str() {
                 if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
@@ -184,7 +184,7 @@ impl CommandHandler {
         self.fetch_url(url).await.map(Info::Url)
     }
 
-    async fn fetch_wikipedia(&self, lang: &str, article: &str) -> Result<UrlInfo, Error> {
+    async fn fetch_wikipedia(&self, lang: &str, article: &str) -> Result<UrlInfo> {
         let config = self.config.current();
 
         let url = Url::parse(&format!(
@@ -220,7 +220,7 @@ impl CommandHandler {
         })
     }
 
-    async fn fetch_url(&self, url: &Url) -> Result<UrlInfo, Error> {
+    async fn fetch_url(&self, url: &Url) -> Result<UrlInfo> {
         let config = self.config.current();
 
         let mut headers = HeaderMap::new();

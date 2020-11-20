@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use anyhow::Error;
+use anyhow::Result;
 use clap::Clap;
 use futures::stream::FuturesUnordered;
-use slog::{o, warn, Drain, Level};
+use slog::{o, warn, crit, Logger, Drain, Level};
 use tokio::stream::StreamExt;
 
 mod command;
@@ -20,20 +20,7 @@ struct Args {
     config: PathBuf,
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Error> {
-    let args = Args::parse();
-
-    let decorator = slog_term::TermDecorator::new().stdout().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain)
-        .build()
-        .filter_level(Level::Debug)
-        .fuse();
-    let log = slog::Logger::root(drain, o!());
-
-    warn!(log, "startup"; "version" => env!("CARGO_PKG_VERSION"), "config" => args.config.display(), "pid" => std::process::id());
-
+async fn run(args: Args, log: Logger) -> Result<()> {
     let mut config_update = ConfigMonitor::watch(log.clone(), &args.config).await?;
     let mut config = config_update.current();
 
@@ -73,7 +60,32 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    warn!(log, "exit");
-
     Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+    let ec = {
+        let args = Args::parse();
+
+        let decorator = slog_term::TermDecorator::new().stdout().build();
+        let drain = slog_term::FullFormat::new(decorator).build().fuse();
+        let drain = slog_async::Async::new(drain)
+            .build()
+            .filter_level(Level::Debug)
+            .fuse();
+        let log = slog::Logger::root(drain, o!());
+
+        warn!(log, "startup"; "version" => env!("CARGO_PKG_VERSION"), "config" => args.config.display(), "pid" => std::process::id());
+
+        if let Err(e) = run(args, log.clone()).await {
+            crit!(log, "exit"; "error" => %e);
+            1
+        } else {
+            warn!(log, "exit");
+            0
+        }
+    };
+
+    std::process::exit(ec);
 }

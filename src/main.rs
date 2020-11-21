@@ -65,9 +65,9 @@ async fn run(args: Args, log: Logger) -> Result<()> {
 
 #[tokio::main]
 async fn main() {
-    let ec = {
-        let args = Args::parse();
+    let args = Args::parse();
 
+    let ec = {
         let decorator = slog_term::TermDecorator::new().stdout().build();
         let drain = slog_term::FullFormat::new(decorator).build().fuse();
         let drain = slog_async::Async::new(drain)

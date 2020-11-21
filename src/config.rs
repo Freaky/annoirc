@@ -10,7 +10,7 @@ use irc::client::prelude::Config;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Deserializer};
 use slog::{crit, error, info, warn, Logger};
-use tokio::sync::watch;
+use tokio::{io::AsyncReadExt, sync::watch};
 
 #[derive(Debug, Clone)]
 pub struct ConfigMonitor(watch::Receiver<Arc<BotConfig>>);
@@ -107,9 +107,18 @@ impl Default for TemplateConfig {
 
 impl BotConfig {
     async fn load(path: &Path) -> Result<BotConfig> {
-        let config = tokio::fs::read_to_string(&path).await?;
-        let config: BotConfig = toml::from_str(&config)?;
-        Ok(config)
+        const LIMIT: usize = 128 * 1024;
+        let mut config = String::new();
+        if tokio::fs::File::open(&path)
+            .await?
+            .take(LIMIT as u64)
+            .read_to_string(&mut config)
+            .await?
+            == LIMIT
+        {
+            return Err(anyhow!("excessively large configuration"));
+        }
+        Ok(toml::from_str(&config)?)
     }
 }
 

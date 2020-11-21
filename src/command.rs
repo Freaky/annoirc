@@ -188,7 +188,7 @@ impl CommandHandler {
 
         self.client
             .get(url.clone())
-            .timeout(Duration::from_secs(config.url.http_timeout_secs as u64))
+            .timeout(Duration::from_secs(config.url.timeout_secs as u64))
             .headers(headers)
     }
 
@@ -236,8 +236,8 @@ impl CommandHandler {
             }
         }
 
-        let byte_limit = 64 * 1024;
-        let mut chunk_limit = 32;
+        let byte_limit = config.url.max_kb as usize * 1024;
+        let mut chunk_limit = config.url.max_chunks;
         let mut buf = Vec::with_capacity(byte_limit * 2);
 
         while let Some(chunk) = res.chunk().await? {

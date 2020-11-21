@@ -39,7 +39,9 @@ pub struct TwitterConfig {
 #[serde(deny_unknown_fields, default)]
 pub struct UrlConfig {
     pub max_per_message: u8,
-    pub http_timeout_secs: u8,
+    pub max_kb: u16,
+    pub max_chunks: u16,
+    pub timeout_secs: u8,
     pub globally_routable_only: bool,
     #[serde(deserialize_with = "parse_header_value")]
     pub user_agent: HeaderValue,
@@ -68,7 +70,9 @@ impl Default for UrlConfig {
     fn default() -> Self {
         Self {
             max_per_message: 3,
-            http_timeout_secs: 10,
+            timeout_secs: 10,
+            max_kb: 256,
+            max_chunks: 256,
             globally_routable_only: true,
             user_agent: HeaderValue::from_static(
                 "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81",

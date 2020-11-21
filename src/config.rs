@@ -70,11 +70,10 @@ impl Default for UrlConfig {
             max_per_message: 3,
             http_timeout_secs: 10,
             globally_routable_only: true,
-            user_agent: HeaderValue::try_from(
+            user_agent: HeaderValue::from_static(
                 "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81",
-            )
-            .unwrap(),
-            accept_language: HeaderValue::try_from("en,*;q=0.5").unwrap(),
+            ),
+            accept_language: HeaderValue::from_static("en,*;q=0.5"),
         }
     }
 }

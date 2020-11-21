@@ -154,11 +154,7 @@ impl CommandHandler {
             if let Some("twitter.com") = url.host_str() {
                 if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
                     if path.len() == 1 || path.len() == 2 && path[1].is_empty() {
-                        return self
-                            .twitter
-                            .fetch_tweeter(&path[0])
-                            .await
-                            .map(Info::Tweeter);
+                        return self.twitter.fetch_tweeter(path[0]).await.map(Info::Tweeter);
                     } else if path.len() == 3 && path[1] == "status" {
                         if let Ok(id) = path[2].parse::<u64>() {
                             return self.twitter.fetch_tweet(id).await.map(Info::Tweet);
@@ -214,7 +210,7 @@ impl CommandHandler {
     async fn fetch_url(&self, url: &Url) -> Result<UrlInfo> {
         let config = self.config.current();
 
-        let mut res = self.http_get(&url).send().await?;
+        let mut res = self.http_get(url).send().await?;
 
         if !res.status().is_success() {
             return Err(anyhow!("Status {}", res.status()));

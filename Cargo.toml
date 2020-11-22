@@ -10,13 +10,13 @@ edition = "2018"
 anyhow = "1.0.34"
 chrono = "0.4.19"
 clap = "3.0.0-beta.2"
-egg-mode = { version = "0.15.0", features = ["rustls"], default-features = false }
+egg-mode = { git  = "https://github.com/Freaky/egg-mode.git", branch = "update-deps", features = ["rustls"], default-features = false }
 egg-mode-text = { git = "https://github.com/Freaky/egg-mode-text.git", branch = "update-deps" }
 futures = "0.3.8"
 governor = "0.3.1"
 html-escape = "0.2.6"
 ip_rfc = "0.1.0"
-irc = { git = "https://github.com/aatxe/irc.git", branch = "develop", features = ["tls-rust", "serde"], default-features = false }
+irc = { git = "https://github.com/aatxe/irc.git", branch = "develop", features = ["serde", "tls-rust"], default-features = false }
 itertools = "0.9.0"
 lazy_static = "1.4.0"
 log = "0.4.11"
@@ -31,7 +31,7 @@ serde_json = "1.0.59"
 slog = "2.5.2"
 slog-async = "2.5.0"
 slog-term = "2.6.0"
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "0.2", features = ["fs", "macros", "rt-threaded", "signal", "sync", "stream", "time"] }
 toml = "0.5.7"
 unicode-segmentation = "1.7.0"
 url = "2.2"

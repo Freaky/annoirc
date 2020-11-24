@@ -19,7 +19,7 @@ cache_entries = 256
 max_per_message = 3
 
 ## HTTP request timeout - will never exceed general command timeout
-http_timeout_secs = 10
+timeout_secs = 10
 
 ## If a request lands on a host that isn't globally routable (e.g. localhost)
 ## refuse to return any data.  This is currently only processed at the end of

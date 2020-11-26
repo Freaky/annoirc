@@ -25,6 +25,13 @@ A simple, efficient IRC bot for annotating Internet Relay Chat conversations.
           https://www.imdb.com/title/tt2543164 - A linguist works with the
           military to communicate with alien lifeforms after twelve mysterious
           spacecrafts appear around the world.
+<@Freaky> .movie 2001
+<annobot> [IMDB] 2001: A Space Odyssey (12 May 1968) [8.3/10 with 594,224 votes,
+          Metascore: 84] [G] [Adventure, Sci-Fi]
+          https://www.imdb.com/title/tt0062622 - After discovering a mysterious
+          artifact buried beneath the Lunar surface, mankind sets off on a quest
+          to find its origins with help from intelligent supercomputer H.A.L.
+          9000.
 ```
 
 ## Description

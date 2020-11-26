@@ -2,37 +2,7 @@
 
 A simple, efficient IRC bot for annotating Internet Relay Chat conversations.
 
-## Synopsis
-
-```
-<@Freaky> https://www.rust-lang.org/
-<annobot> [www.rust-lang.org] Rust Programming Language
-<annobot> [www.rust-lang.org] A language empowering everyone to build reliable
-          and efficient software.
-<@Freaky> https://twitter.com/DwarfFortBugs/status/1321309817718427654
-<annobot> [Twitter] Dwarf Fortress Bugs (@DwarfFortBugs) 9244: Scribes rarely,
-          if ever, actually work in the library | ❤️69 2020-10-28 04:36
-<@Freaky> https://en.wikipedia.org/wiki/Rust_(programming_language)
-<annobot> [en.wikipedia.org] Rust (programming language)
-       ╰  [en.wikipedia.org] Rust is a multi-paradigm programming language
-          designed for performance and safety, especially safe concurrency.
-          Rust is syntactically similar to C++, but can guarantee memory safety
-          by using a borrow checker to validate references. Rust achieves memory
-          safety without garbage collection, and reference counting is optional.
-<@Freaky> https://www.imdb.com/title/tt2543164/
-<annobot> [IMDB] Arrival (11 Nov 2016) [7.9/10 with 582,367 votes, Metascore: 81]
-          [PG-13] [Drama, Mystery, Sci-Fi, Thriller]
-          https://www.imdb.com/title/tt2543164 - A linguist works with the
-          military to communicate with alien lifeforms after twelve mysterious
-          spacecrafts appear around the world.
-<@Freaky> .movie 2001
-<annobot> [IMDB] 2001: A Space Odyssey (12 May 1968) [8.3/10 with 594,224 votes,
-          Metascore: 84] [G] [Adventure, Sci-Fi]
-          https://www.imdb.com/title/tt0062622 - After discovering a mysterious
-          artifact buried beneath the Lunar surface, mankind sets off on a quest
-          to find its origins with help from intelligent supercomputer H.A.L.
-          9000.
-```
+![Example image](demo.png)
 
 ## Description
 
@@ -53,13 +23,35 @@ It's currently very young and should be deployed with care.
 * Per-channel rate limits.
 * Graceful config reloads via `SIGHUP`.
 
+## Usage
+
+Create a configuration file, using `example.toml` as a guide.
+
+Build the bot, assuming you have Rust installed:
+
+```shell
+$ cargo install --git https://github.com/Freaky/annoirc.git
+```
+
+And run it passing the path to the configuration:
+
+```shell
+$ annoirc -c config.toml
+```
+
+Changes to your configuration can be applied by calling`kill -HUP` on the annoirc
+process.
+
+Configuring it to act as a daemon is system-specific and left as an exercise.
+
 ## Todo
 
+* General refactoring.
+* Better rate limits.
 * Gracefuler config reloads (any IRC changes currently involve a reconnection).
 * Fully templated responses with colour support.
 * Special handling for YouTube, Github, Imgur, etc.
 * Functions such as weather, dictionary lookups, currency conversions, stocks, etc.
-* Stop writing `clone()` everywhere.
 
 ## See Also
 

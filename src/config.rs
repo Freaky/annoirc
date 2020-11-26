@@ -63,6 +63,7 @@ pub struct CommandConfig {
     pub max_runtime_secs: u8,
     pub cache_time_secs: u32,
     pub cache_entries: u32,
+    pub prefix: String,
 }
 
 fn parse_header_value<'de, D>(d: D) -> Result<HeaderValue, D::Error>
@@ -96,6 +97,7 @@ impl Default for CommandConfig {
             max_runtime_secs: 10,
             cache_time_secs: 1800,
             cache_entries: 256,
+            prefix: ".".to_string(),
         }
     }
 }

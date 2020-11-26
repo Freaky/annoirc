@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use futures::{channel::oneshot, future::Shared, prelude::*};
+use futures::{channel::oneshot, future::Shared, FutureExt};
 use lru_time_cache::LruCache;
 use reqwest::header::{HeaderMap, ACCEPT_LANGUAGE, USER_AGENT};
 use scraper::{Html, Selector};
@@ -14,7 +14,7 @@ use slog::{info, o, Logger};
 use tokio::time::timeout;
 use url::Url;
 
-use crate::{config::*, irc_string::*, twitter::*, omdb};
+use crate::{config::*, irc_string::*, omdb, twitter::*};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
@@ -26,6 +26,7 @@ pub struct UrlInfo {
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum BotCommand {
     Url(Url),
+    Omdb(String, String),
 }
 
 // Consider Boxing these, or moving the Arc internally
@@ -34,7 +35,7 @@ pub enum Info {
     Url(UrlInfo),
     Tweet(Tweet),
     Tweeter(Tweeter),
-    Movie(omdb::Movie)
+    Movie(omdb::Movie),
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +59,7 @@ impl fmt::Display for BotCommand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Url(url) => write!(f, "Url({})", url),
+            Self::Omdb(kind, search) => write!(f, "Omdb({}, {})", kind, search),
         }
     }
 }
@@ -131,8 +133,11 @@ impl CommandHandler {
             Duration::from_secs(self.config.current().command.max_runtime_secs as u64);
 
         tokio::spawn(async move {
-            let res = match command {
-                BotCommand::Url(ref url) => timeout(max_runtime, handler.handle_url(url)).await,
+            let res = match &command {
+                BotCommand::Url(url) => timeout(max_runtime, handler.handle_url(url)).await,
+                BotCommand::Omdb(kind, ref search) => {
+                    timeout(max_runtime, handler.handle_omdb(kind, search)).await
+                }
             };
 
             match res {
@@ -148,6 +153,16 @@ impl CommandHandler {
         });
 
         rx
+    }
+
+    async fn handle_omdb(&self, kind: &str, search: &str) -> Result<Info> {
+        let config = self.config.current();
+
+        if let Some(key) = &config.omdb.api_key {
+            Ok(omdb::search(search, kind, key).await.map(Info::Movie)?)
+        } else {
+            Err(anyhow!("Unconfigured"))
+        }
     }
 
     async fn handle_url(&self, url: &Url) -> Result<Info> {

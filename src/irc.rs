@@ -11,7 +11,7 @@ use slog::{error, info, o, warn, Logger};
 use tokio::{stream::StreamExt, task::JoinHandle, time::Instant};
 use url::Url;
 
-use crate::{command::*, config::*, irc_string::*, twitter::*, omdb::Movie};
+use crate::{command::*, config::*, irc_string::*, omdb::Movie, twitter::*};
 
 #[derive(Debug)]
 struct CommandResponse {
@@ -173,7 +173,7 @@ impl IrcTask {
                         client.send_quit("Disconnecting")?;
                     }
                 },
-                Some(_) = pending.next() => { },
+                Some(fut) = pending.next() => { fut??; },
                 message = stream.next() => {
                     if message.is_none() {
                         break;
@@ -212,6 +212,29 @@ impl IrcTask {
                                     continue;
                                 }
 
+                                if config.omdb.api_key.is_some() && content.starts_with(&config.command.prefix) {
+                                    let command = &content[config.command.prefix.len()..].split_whitespace().collect::<Vec<&str>>();
+                                    if command.len() < 2 {
+                                        continue;
+                                    }
+                                    let search = itertools::join(command[1..].iter(), " ");
+                                    match &command[0].to_lowercase()[..] {
+                                        "film" | "movie" => {
+                                            let cmd = BotCommand::Omdb("movie".to_string(), search.clone());
+                                            info!(self.log, "omdb"; "kind" => "film", "search" => search, "channel" => %target, "source" => %nick);
+                                            pending.push(self.command(cmd, target.clone(), client.sender()));
+                                            continue;
+                                        }
+                                        "show" | "series" | "tv" => {
+                                            let cmd = BotCommand::Omdb("series".to_string(), search.clone());
+                                            info!(self.log, "omdb"; "kind" => "series", "search" => search, "channel" => %target, "source" => %nick);
+                                            pending.push(self.command(cmd, target.clone(), client.sender()));
+                                            continue;
+                                        }
+                                        _ => {}
+                                    }
+                                }
+
                                 for url in url_entities(&content)
                                     .into_iter()
                                     .filter_map(|url| parse_url(url.substr(content)).ok())
@@ -224,15 +247,8 @@ impl IrcTask {
                                     }
 
                                     let cmd = BotCommand::Url(url.clone());
-                                    let target = target.clone();
-                                    let sender = client.sender();
                                     info!(self.log, "lookup"; "url" => %url, "channel" => %target, "source" => %nick);
-                                    let fut = self.handler.spawn(cmd).map_ok(move |res| {
-                                        if let Ok(res) = &*res {
-                                            let _ = display_response(&res, &target, sender);
-                                        }
-                                    });
-                                    pending.push(fut);
+                                    pending.push(self.command(cmd, target.clone(), client.sender()));
                                 }
                             }
                         },
@@ -244,6 +260,22 @@ impl IrcTask {
         }
 
         Ok(shutdown)
+    }
+
+    fn command(
+        &self,
+        cmd: BotCommand,
+        target: String,
+        sender: Sender,
+    ) -> impl futures::future::Future<Output = Result<Result<()>, futures::channel::oneshot::Canceled>>
+    {
+        self.handler.spawn(cmd).map_ok(move |res| {
+            if let Ok(res) = &*res {
+                display_response(&res, &target, sender)
+            } else {
+                Ok(())
+            }
+        })
     }
 }
 

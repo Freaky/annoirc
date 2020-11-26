@@ -1,5 +1,4 @@
-
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::irc_string::IrcString;
 
@@ -18,26 +17,38 @@ pub struct Movie {
     pub metascore: IrcString,
 }
 
-pub async fn imdb_id(id: &str, key: &str) -> Result<Movie> {
-    let movie = omdb::imdb_id(id)
-        .apikey(key)
-        .get()
-        .await
-        .map(|movie| {
-            Movie {
-                title: movie.title.into(),
-                plot: movie.plot.into(),
-                rated: movie.rated.into(),
-                released: movie.released.into(),
-                runtime: movie.runtime.into(),
-                genre: movie.genre.into(),
-                director: movie.director.into(),
-                imdb_rating: movie.imdb_rating.into(),
-                imdb_votes: movie.imdb_votes.into(),
-                imdb_id: movie.imdb_id.into(),
-                metascore: movie.metascore.into(),
-            }
-        })?;
+impl From<omdb::Movie> for Movie {
+    fn from(movie: omdb::Movie) -> Self {
+        Movie {
+            title: movie.title.into(),
+            plot: movie.plot.into(),
+            rated: movie.rated.into(),
+            released: movie.released.into(),
+            runtime: movie.runtime.into(),
+            genre: movie.genre.into(),
+            director: movie.director.into(),
+            imdb_rating: movie.imdb_rating.into(),
+            imdb_votes: movie.imdb_votes.into(),
+            imdb_id: movie.imdb_id.into(),
+            metascore: movie.metascore.into(),
+        }
+    }
+}
 
-    Ok(movie)
+pub async fn imdb_id(id: &str, key: &str) -> Result<Movie> {
+    let movie = omdb::imdb_id(id).apikey(key).get().await?;
+
+    Ok(movie.into())
+}
+
+pub async fn search(query: &str, kind: &str, key: &str) -> Result<Movie> {
+    let kind = match kind {
+        "movie" => omdb::Kind::Movie,
+        "series" => omdb::Kind::Series,
+        _ => return Err(anyhow!("Unknown type")),
+    };
+
+    let movie = omdb::title(query).apikey(key).kind(kind).get().await?;
+
+    Ok(movie.into())
 }

@@ -13,12 +13,18 @@ A simple, efficient IRC bot for annotating Internet Relay Chat conversations.
 <annobot> [Twitter] Dwarf Fortress Bugs (@DwarfFortBugs) 9244: Scribes rarely,
           if ever, actually work in the library | ❤️69 2020-10-28 04:36
 <@Freaky> https://en.wikipedia.org/wiki/Rust_(programming_language)
- annobot> [en.wikipedia.org] Rust (programming language)
+<annobot> [en.wikipedia.org] Rust (programming language)
        ╰  [en.wikipedia.org] Rust is a multi-paradigm programming language
           designed for performance and safety, especially safe concurrency.
           Rust is syntactically similar to C++, but can guarantee memory safety
           by using a borrow checker to validate references. Rust achieves memory
           safety without garbage collection, and reference counting is optional.
+<@Freaky> https://www.imdb.com/title/tt2543164/
+<annobot> [IMDB] Arrival (11 Nov 2016) [7.9/10 with 582,367 votes, Metascore: 81]
+          [PG-13] [Drama, Mystery, Sci-Fi, Thriller]
+          https://www.imdb.com/title/tt2543164 - A linguist works with the
+          military to communicate with alien lifeforms after twelve mysterious
+          spacecrafts appear around the world.
 ```
 
 ## Description
@@ -27,7 +33,7 @@ A simple, efficient IRC bot for annotating Internet Relay Chat conversations.
 to help enhance the Chat Experience™.  This includes:
 
 * Title text and meta descriptions of websites.
-* Detailed information for Tweets and Twitter users via API.
+* Dedicated handling for IMDB, Twitter, and Wikipedia.
 * Pretty colours.
 * Other stuff at some point.
 
@@ -44,7 +50,7 @@ It's currently very young and should be deployed with care.
 
 * Gracefuler config reloads (any IRC changes currently involve a reconnection).
 * Fully templated responses with colour support.
-* Special handling for YouTube, Github, Imgur, IMDB, etc.
+* Special handling for YouTube, Github, Imgur, etc.
 * Functions such as weather, dictionary lookups, currency conversions, stocks, etc.
 * Stop writing `clone()` everywhere.
 

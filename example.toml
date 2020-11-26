@@ -21,6 +21,12 @@ max_per_message = 3
 ## HTTP request timeout - will never exceed general command timeout
 timeout_secs = 10
 
+## HTTP request body limit before giving up, 1-65535
+max_kb = 256
+
+## Maximum number of HTTP chunks to receive, 1-65535
+max_chunks = 256
+
 ## If a request lands on a host that isn't globally routable (e.g. localhost)
 ## refuse to return any data.  This is currently only processed at the end of
 ## a request, after any redirections.
@@ -36,6 +42,10 @@ accept_language = "en,*;q=0.5"
 [twitter]
 ## Apply for API access at https://developer.twitter.com/
 # bearer_token = ""
+
+[omdb]
+## Apply for API access at https://www.omdbapi.com/apikey.aspx
+# api_key = ""
 
 [network.example]
 nickname = "annobot"

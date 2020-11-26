@@ -11,7 +11,7 @@ use slog::{error, info, o, warn, Logger};
 use tokio::{stream::StreamExt, task::JoinHandle, time::Instant};
 use url::Url;
 
-use crate::{command::*, config::*, irc_string::*, twitter::*};
+use crate::{command::*, config::*, irc_string::*, twitter::*, omdb::Movie};
 
 #[derive(Debug)]
 struct CommandResponse {
@@ -256,8 +256,8 @@ fn message_source(msg: &Message) -> &str {
 }
 
 fn display_response(info: &Info, target: &str, sender: Sender) -> Result<()> {
-    match info {
-        Info::Url(ref info) => {
+    match &info {
+        Info::Url(info) => {
             let host = sanitize(info.url.host_str().unwrap_or(""), 30);
             sender.send_privmsg(
                 &target,
@@ -278,7 +278,7 @@ fn display_response(info: &Info, target: &str, sender: Sender) -> Result<()> {
                 )?;
             }
         }
-        Info::Tweet(ref tweet) => {
+        Info::Tweet(tweet) => {
             sender.send_privmsg(&target, format_tweet(tweet, "Twitter"))?;
             if let Some(quote) = &tweet.quote {
                 sender.send_privmsg(&target, format_tweet(quote, "Retweet"))?;
@@ -287,15 +287,34 @@ fn display_response(info: &Info, target: &str, sender: Sender) -> Result<()> {
                 sender.send_privmsg(&target, format_tweet(retweet, "Retweet"))?;
             }
         }
-        Info::Tweeter(ref user) => {
+        Info::Tweeter(user) => {
             sender.send_privmsg(&target, format_tweeter(user))?;
             if let Some(tweet) = &user.status {
                 sender.send_privmsg(&target, format_tweet(tweet, " Status"))?;
             }
         }
+        Info::Movie(movie) => {
+            sender.send_privmsg(&target, format_movie(movie))?;
+        }
     }
 
     Ok(())
+}
+
+fn format_movie(movie: &Movie) -> String {
+    format!(
+        "[\x0303{}\x0f] \x0304{}\x0f ({}) [{}/10 with {} votes, Metascore: {}] [{}] [{}] \x0303{}\x0f - \x0300\x02\x02{}\x0f",
+        "IMDB",
+        movie.title.trunc(30),
+        movie.released,
+        movie.imdb_rating,
+        movie.imdb_votes,
+        movie.metascore,
+        movie.rated,
+        movie.genre,
+        format!("https://www.imdb.com/title/{}", movie.imdb_id),
+        movie.plot,
+    )
 }
 
 fn format_tweet(tweet: &Tweet, tag: &str) -> String {

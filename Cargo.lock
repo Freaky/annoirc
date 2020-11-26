@@ -59,6 +59,7 @@ dependencies = [
  "lru_time_cache",
  "mime",
  "nonzero_ext",
+ "omdb",
  "regex",
  "reqwest",
  "scraper",
@@ -1374,6 +1375,16 @@ checksum = "05499f3756671c15885fee9034446956fff3f243d6077b91e5767df161f766b3"
 dependencies = [
  "hermit-abi",
  "libc",
+]
+
+[[package]]
+name = "omdb"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25c08e74864083aa91a26a3bc0aef0aa6e0868d82f112e06eb6d8fb0f20c8e22"
+dependencies = [
+ "reqwest",
+ "serde",
 ]
 
 [[package]]

@@ -11,6 +11,7 @@ mod config;
 mod irc;
 mod irc_string;
 mod twitter;
+mod omdb;
 
 use crate::{command::*, config::*, irc::*};
 

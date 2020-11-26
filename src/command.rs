@@ -14,7 +14,7 @@ use slog::{info, o, Logger};
 use tokio::time::timeout;
 use url::Url;
 
-use crate::{config::*, irc_string::*, twitter::*};
+use crate::{config::*, irc_string::*, twitter::*, omdb};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
@@ -23,7 +23,7 @@ pub struct UrlInfo {
     pub desc: Option<IrcString>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum BotCommand {
     Url(Url),
 }
@@ -34,6 +34,7 @@ pub enum Info {
     Url(UrlInfo),
     Tweet(Tweet),
     Tweeter(Tweeter),
+    Movie(omdb::Movie)
 }
 
 #[derive(Debug, Deserialize)]
@@ -150,7 +151,8 @@ impl CommandHandler {
     }
 
     async fn handle_url(&self, url: &Url) -> Result<Info> {
-        if self.config.current().twitter.bearer_token.is_some() {
+        let config = self.config.current();
+        if config.twitter.bearer_token.is_some() {
             if let Some("twitter.com") = url.host_str() {
                 if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
                     if path.len() == 1 || path.len() == 2 && path[1].is_empty() {
@@ -159,6 +161,17 @@ impl CommandHandler {
                         if let Ok(id) = path[2].parse::<u64>() {
                             return self.twitter.fetch_tweet(id).await.map(Info::Tweet);
                         }
+                    }
+                }
+            }
+        }
+
+        if let Some(key) = &config.omdb.api_key {
+            if let Some("www.imdb.com") = url.host_str() {
+                if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
+                    if path.len() > 1 && path[0] == "title" {
+                        let imdb_id = path[1];
+                        return omdb::imdb_id(imdb_id, key).await.map(Info::Movie);
                     }
                 }
             }

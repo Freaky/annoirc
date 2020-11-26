@@ -95,3 +95,9 @@ impl fmt::Display for MaybeTruncated<'_> {
         }
     }
 }
+
+impl fmt::Display for IrcString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}

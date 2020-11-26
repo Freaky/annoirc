@@ -35,3 +35,4 @@ tokio = { version = "0.2", features = ["fs", "macros", "rt-threaded", "signal", 
 toml = "0.5.7"
 unicode-segmentation = "1.7.0"
 url = "2.2"
+omdb = "0.3.1"

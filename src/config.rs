@@ -25,6 +25,7 @@ pub struct BotConfig {
     pub template: TemplateConfig,
     pub url: UrlConfig,
     pub twitter: TwitterConfig,
+    pub omdb: OmdbConfig,
     pub defaults: Config,
     pub network: HashMap<String, Config>,
 }
@@ -47,6 +48,12 @@ pub struct UrlConfig {
     pub user_agent: HeaderValue,
     #[serde(deserialize_with = "parse_header_value")]
     pub accept_language: HeaderValue,
+}
+
+#[derive(Default, Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields, default)]
+pub struct OmdbConfig {
+    pub api_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

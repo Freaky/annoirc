@@ -173,7 +173,7 @@ impl IrcTask {
                         client.send_quit("Disconnecting")?;
                     }
                 },
-                Some(fut) = pending.next() => { fut??; },
+                Some(fut) = pending.next() => { let _ = fut; /* probably cancelled by a concurrency change */ },
                 message = stream.next() => {
                     if message.is_none() {
                         break;
@@ -222,13 +222,13 @@ impl IrcTask {
                                         "film" | "movie" => {
                                             let cmd = BotCommand::Omdb("movie".to_string(), search.clone());
                                             info!(self.log, "omdb"; "kind" => "film", "search" => search, "channel" => %target, "source" => %nick);
-                                            pending.push(self.command(cmd, target.clone(), client.sender()));
+                                            self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
                                             continue;
                                         }
                                         "show" | "series" | "tv" => {
                                             let cmd = BotCommand::Omdb("series".to_string(), search.clone());
                                             info!(self.log, "omdb"; "kind" => "series", "search" => search, "channel" => %target, "source" => %nick);
-                                            pending.push(self.command(cmd, target.clone(), client.sender()));
+                                            self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
                                             continue;
                                         }
                                         _ => {}
@@ -248,7 +248,7 @@ impl IrcTask {
 
                                     let cmd = BotCommand::Url(url.clone());
                                     info!(self.log, "lookup"; "url" => %url, "channel" => %target, "source" => %nick);
-                                    pending.push(self.command(cmd, target.clone(), client.sender()));
+                                    self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
                                 }
                             }
                         },
@@ -267,14 +267,17 @@ impl IrcTask {
         cmd: BotCommand,
         target: String,
         sender: Sender,
-    ) -> impl futures::future::Future<Output = Result<Result<()>, futures::channel::oneshot::Canceled>>
-    {
-        self.handler.spawn(cmd).map_ok(move |res| {
-            if let Ok(res) = &*res {
-                display_response(&res, &target, sender)
-            } else {
-                Ok(())
-            }
+    ) -> Option<
+        impl futures::future::Future<Output = Result<Result<()>, futures::channel::oneshot::Canceled>>,
+    > {
+        self.handler.spawn(cmd).map(|fut| {
+            fut.map_ok(move |res| {
+                if let Ok(res) = &*res {
+                    display_response(&res, &target, sender)
+                } else {
+                    Ok(())
+                }
+            })
         })
     }
 }

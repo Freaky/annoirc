@@ -5,7 +5,12 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
-use futures::{channel::oneshot, future::Shared, FutureExt};
+use futures::{
+    channel::{mpsc, oneshot},
+    future::Shared,
+    stream::StreamExt,
+    FutureExt,
+};
 use lru_time_cache::LruCache;
 use reqwest::header::{HeaderMap, ACCEPT_LANGUAGE, USER_AGENT};
 use scraper::{Html, Selector};
@@ -45,6 +50,13 @@ struct Wiki {
 }
 
 type Response = Shared<oneshot::Receiver<Arc<Result<Info>>>>;
+type Work = std::pin::Pin<
+    Box<
+        dyn futures::Future<
+                Output = std::result::Result<(), Arc<std::result::Result<Info, anyhow::Error>>>,
+            > + std::marker::Send,
+    >,
+>;
 
 #[derive(Clone)]
 pub struct CommandHandler {
@@ -52,6 +64,7 @@ pub struct CommandHandler {
     config: ConfigMonitor,
     client: reqwest::Client,
     twitter: TwitterHandler,
+    queue: mpsc::Sender<Work>,
     cache: Arc<Mutex<LruCache<BotCommand, Response>>>,
 }
 
@@ -88,6 +101,7 @@ fn cache_from_config(conf: &Arc<BotConfig>) -> LruCache<BotCommand, Response> {
 impl CommandHandler {
     pub fn new(log: Logger, config: ConfigMonitor) -> Self {
         let conf = config.current();
+        let (queue, queue_rx) = mpsc::channel(64);
         let handler = Self {
             log,
             twitter: TwitterHandler::new(config.clone()),
@@ -97,32 +111,49 @@ impl CommandHandler {
                 .pool_max_idle_per_host(1)
                 .build()
                 .expect("Couldn't build HTTP client"),
+            queue,
             cache: Arc::new(Mutex::new(cache_from_config(&conf))),
         };
 
-        let cache = handler.cache.clone();
-        let mut config = handler.config.clone();
-        tokio::spawn(async move {
-            while let Some(conf) = config.next().await {
-                *cache.lock().unwrap() = cache_from_config(&conf);
-            }
-        });
-
+        handler
+            .clone()
+            .start(queue_rx, conf.command.max_concurrency);
         handler
     }
 
-    pub fn spawn(&self, command: BotCommand) -> Response {
+    fn start(self, work: mpsc::Receiver<Work>, mut concurrency: u8) {
+        let mut config = self.config.clone();
+        tokio::spawn(async move {
+            let mut jobs = work.buffer_unordered(concurrency as usize);
+            loop {
+                tokio::select! {
+                    Some(conf) = config.next() => {
+                        let mut cache = self.cache.lock().unwrap();
+                        let new_concurrency = conf.command.max_concurrency;
+                        if new_concurrency != concurrency {
+                            jobs = jobs.into_inner().buffer_unordered(new_concurrency as usize);
+                            concurrency = new_concurrency;
+                        }
+                        *cache = cache_from_config(&conf);
+                    },
+                    Some(job) = jobs.next() => { let _ = job; },
+                    else => { break; }
+                }
+            }
+        });
+    }
+
+    pub fn spawn(&self, command: BotCommand) -> Option<Response> {
         let mut cache = self.cache.lock().unwrap();
         let log = self.log.new(o!("command" => command.to_string()));
 
         if let Some(res) = cache.get(&command) {
             info!(log, "cached");
-            return res.clone();
+            return Some(res.clone());
         }
 
         info!(log, "execute");
 
-        // Would this be better off just as a JoinHandle?
         let (tx, rx) = oneshot::channel::<Arc<Result<Info>>>();
         let rx = rx.shared();
 
@@ -132,7 +163,7 @@ impl CommandHandler {
         let max_runtime =
             Duration::from_secs(self.config.current().command.max_runtime_secs as u64);
 
-        tokio::spawn(async move {
+        let fut = async move {
             let res = match &command {
                 BotCommand::Url(url) => timeout(max_runtime, handler.handle_url(url)).await,
                 BotCommand::Omdb(kind, ref search) => {
@@ -150,9 +181,9 @@ impl CommandHandler {
                     tx.send(Arc::new(Err(anyhow!("Timed out"))))
                 }
             }
-        });
+        };
 
-        rx
+        self.queue.clone().try_send(fut.boxed()).ok().map(|_| rx)
     }
 
     async fn handle_omdb(&self, kind: &str, search: &str) -> Result<Info> {

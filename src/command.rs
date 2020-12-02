@@ -50,13 +50,7 @@ struct Wiki {
 }
 
 type Response = Shared<oneshot::Receiver<Arc<Result<Info>>>>;
-type Work = std::pin::Pin<
-    Box<
-        dyn futures::Future<
-                Output = std::result::Result<(), Arc<std::result::Result<Info, anyhow::Error>>>,
-            > + std::marker::Send,
-    >,
->;
+type Work = std::pin::Pin<Box<dyn futures::Future<Output = Result<(), Arc<Result<Info>>>> + Send>>;
 
 #[derive(Clone)]
 pub struct CommandHandler {

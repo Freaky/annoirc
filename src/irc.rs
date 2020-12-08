@@ -237,7 +237,7 @@ impl IrcTask {
 
                                 for url in url_entities(&content)
                                     .into_iter()
-                                    .filter_map(|url| parse_url(url.substr(content)).ok())
+                                    .filter_map(|url| parse_url(url.substr(content), config.url.scheme_required).ok())
                                     .take(config.url.max_per_message as usize)
                                     .unique()
                                 {
@@ -401,10 +401,12 @@ fn format_tweeter(user: &Tweeter) -> String {
     )
 }
 
-fn parse_url(text: &str) -> Result<Url, url::ParseError> {
+fn parse_url(text: &str, scheme_required: bool) -> Result<Url, url::ParseError> {
     match Url::parse(text) {
         Ok(url) => Ok(url),
-        Err(url::ParseError::RelativeUrlWithoutBase) => Url::parse(&format!("http://{}", text)),
+        Err(url::ParseError::RelativeUrlWithoutBase) if !scheme_required => {
+            Url::parse(&format!("http://{}", text))
+        }
         Err(e) => Err(e),
     }
 }

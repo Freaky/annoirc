@@ -270,10 +270,11 @@ impl IrcTask {
     ) -> Option<
         impl futures::future::Future<Output = Result<Result<()>, futures::channel::oneshot::Canceled>>,
     > {
-        self.handler.spawn(cmd).map(|fut| {
+        let config = self.config.current();
+        self.handler.spawn(cmd).map(move |fut| {
             fut.map_ok(move |res| {
                 if let Ok(res) = &*res {
-                    display_response(&res, &target, sender)
+                    display_response(&res, &target, sender, config)
                 } else {
                     Ok(())
                 }
@@ -290,7 +291,7 @@ fn message_source(msg: &Message) -> &str {
     }
 }
 
-fn display_response(info: &Info, target: &str, sender: Sender) -> Result<()> {
+fn display_response(info: &Info, target: &str, sender: Sender, config: Arc<BotConfig>) -> Result<()> {
     match &info {
         Info::Url(info) => {
             let host = sanitize(info.url.host_str().unwrap_or(""), 30);
@@ -302,7 +303,7 @@ fn display_response(info: &Info, target: &str, sender: Sender) -> Result<()> {
                     info.title.trunc(380)
                 ),
             )?;
-            if let Some(desc) = &info.desc {
+            if let (true, Some(desc)) = (config.url.include_description, &info.desc) {
                 sender.send_privmsg(
                     &target,
                     format!(

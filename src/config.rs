@@ -45,6 +45,7 @@ pub struct UrlConfig {
     pub timeout_secs: u8,
     pub globally_routable_only: bool,
     pub scheme_required: bool,
+    pub include_description: bool,
     #[serde(deserialize_with = "parse_header_value")]
     pub user_agent: HeaderValue,
     #[serde(deserialize_with = "parse_header_value")]
@@ -84,6 +85,7 @@ impl Default for UrlConfig {
             max_chunks: 256,
             globally_routable_only: true,
             scheme_required: false,
+            include_description: true,
             user_agent: HeaderValue::from_static(
                 "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81",
             ),

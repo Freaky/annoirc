@@ -39,6 +39,10 @@ user_agent = "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 ann
 ## https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language
 accept_language = "en,*;q=0.5"
 
+## A list of regular expressions to ignore if they match a URL
+## Use single quotes to avoid needing to double-escape the backslash
+ignore_url_regex = ['imgur\.com/']
+
 [twitter]
 ## Apply for API access at https://developer.twitter.com/
 # bearer_token = ""

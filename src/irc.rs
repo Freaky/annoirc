@@ -237,6 +237,7 @@ impl IrcTask {
 
                                 for url in url_entities(&content)
                                     .into_iter()
+                                    .filter(|url| !config.url.ignore_url_regex.is_match(url.substr(content)))
                                     .filter_map(|url| parse_url(url.substr(content), config.url.scheme_required).ok())
                                     .take(config.url.max_per_message as usize)
                                     .unique()
@@ -291,7 +292,12 @@ fn message_source(msg: &Message) -> &str {
     }
 }
 
-fn display_response(info: &Info, target: &str, sender: Sender, config: Arc<BotConfig>) -> Result<()> {
+fn display_response(
+    info: &Info,
+    target: &str,
+    sender: Sender,
+    config: Arc<BotConfig>,
+) -> Result<()> {
     match &info {
         Info::Url(info) => {
             let host = sanitize(info.url.host_str().unwrap_or(""), 30);

@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{anyhow, Result};
 use irc::client::prelude::Config;
+use regex::RegexSet;
 use reqwest::header::HeaderValue;
 use serde::{Deserialize, Deserializer};
 use slog::{crit, error, info, warn, Logger};
@@ -50,6 +51,8 @@ pub struct UrlConfig {
     pub user_agent: HeaderValue,
     #[serde(deserialize_with = "parse_header_value")]
     pub accept_language: HeaderValue,
+    #[serde(deserialize_with = "parse_regex_set")]
+    pub ignore_url_regex: RegexSet,
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]
@@ -76,6 +79,14 @@ where
     HeaderValue::try_from(s).map_err(serde::de::Error::custom)
 }
 
+fn parse_regex_set<'de, D>(d: D) -> Result<RegexSet, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let re = <Vec<String>>::deserialize(d)?;
+    RegexSet::new(re).map_err(serde::de::Error::custom)
+}
+
 impl Default for UrlConfig {
     fn default() -> Self {
         Self {
@@ -90,6 +101,7 @@ impl Default for UrlConfig {
                 "Mozilla/5.0 (FreeBSD 14.0; FreeBSD; x64; rv:81) Gecko/20100101 annoirc/81",
             ),
             accept_language: HeaderValue::from_static("en,*;q=0.5"),
+            ignore_url_regex: RegexSet::empty(),
         }
     }
 }

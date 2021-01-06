@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::Clap;
 use futures::stream::FuturesUnordered;
 use slog::{crit, o, warn, Drain, Level, Logger};
-use tokio::stream::StreamExt;
+use tokio_stream::StreamExt;
 
 mod command;
 mod config;

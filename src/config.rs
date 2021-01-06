@@ -160,10 +160,7 @@ impl ConfigMonitor {
             crit!(log, "load"; "status" => "failed", "error" => %e, "path" => %path.display());
             anyhow!("Failed loading initial configuration")
         })?;
-        let (tx, mut rx) = watch::channel(Arc::new(config));
-
-        // Discard the initial configuration
-        let _ = rx.recv().await;
+        let (tx, rx) = watch::channel(Arc::new(config));
 
         let tx = ConfigUpdater(Arc::new(Mutex::new(Some(tx))));
         let rx = ConfigMonitor(rx);
@@ -180,26 +177,26 @@ impl ConfigMonitor {
 
         #[cfg(unix)]
         {
-            use tokio::{
-                signal::unix::{signal, SignalKind},
-                stream::StreamExt,
-            };
+            use tokio::signal::unix::{signal, SignalKind};
 
             tokio::spawn(async move {
-                let mut term = signal(SignalKind::terminate())
-                    .unwrap()
-                    .map(|_| "TERM")
-                    .merge(signal(SignalKind::interrupt()).unwrap().map(|_| "INT"));
+                let mut term = signal(SignalKind::terminate()).unwrap();
+                let mut int = signal(SignalKind::interrupt()).unwrap();
                 let mut hup = signal(SignalKind::hangup()).unwrap();
 
                 loop {
                     tokio::select! {
-                        Some(sig) = term.next() => {
-                            warn!(log, "shutdown"; "signal" => sig);
+                        Some(_) = term.recv() => {
+                            warn!(log, "shutdown"; "signal" => "term");
                             tx.close();
                             break;
                         },
-                        Some(_) = hup.next() => {
+                        Some(_) = int.recv() => {
+                            warn!(log, "shutdown"; "signal" => "interrupt");
+                            tx.close();
+                            break;
+                        },
+                        Some(_) = hup.recv() => {
                             match BotConfig::load(&path).await {
                                 Ok(c) => {
                                     warn!(log, "reload"; "status" => "updating", "path" => %path.display());
@@ -229,7 +226,8 @@ impl ConfigMonitor {
 
     /// Wait for the next configuration update, if any.
     pub async fn next(&mut self) -> Option<Arc<BotConfig>> {
-        self.0.recv().await
+        self.0.changed().await.ok()?;
+        Some(self.current())
     }
 }
 
@@ -238,7 +236,7 @@ impl ConfigUpdater {
     pub fn update(&self, config: BotConfig) -> bool {
         let tx = self.0.lock().unwrap();
         if let Some(tx) = &*tx {
-            tx.broadcast(Arc::new(config)).is_ok()
+            tx.send(Arc::new(config)).is_ok()
         } else {
             false
         }

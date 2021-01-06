@@ -8,7 +8,8 @@ use irc::client::prelude::*;
 use itertools::Itertools;
 use nonzero_ext::*;
 use slog::{error, info, o, warn, Logger};
-use tokio::{stream::StreamExt, task::JoinHandle, time::Instant};
+use tokio::{task::JoinHandle, time::Instant};
+use tokio_stream::StreamExt;
 use url::Url;
 
 use crate::{command::*, config::*, irc_string::*, omdb::Movie, twitter::*};
@@ -118,7 +119,7 @@ impl IrcTask {
                         info!(self.log, "sleep"; "delay" => ?delay);
                     }
                 },
-                _ = tokio::time::delay_for(delay.unwrap_or_default()), if delay.is_some() => {
+                _ = tokio::time::sleep(delay.unwrap_or_default()), if delay.is_some() => {
                     delay = None;
                 },
                 None = conf.next(), if delay.is_some() => {

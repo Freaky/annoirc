@@ -28,7 +28,7 @@ It's currently very young and should be deployed with care.
 
 Create a configuration file, using `example.toml` as a guide.
 
-Build the bot, assuming you have Rust installed:
+Build the bot (currently requires Rust nightly):
 
 ```shell
 $ cargo install --git https://github.com/Freaky/annoirc.git

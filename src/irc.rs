@@ -12,7 +12,7 @@ use tokio::{task::JoinHandle, time::Instant};
 use tokio_stream::StreamExt;
 use url::Url;
 
-use crate::{command::*, config::*, irc_string::*, omdb::Movie, twitter::*};
+use crate::{command::*, config::*, irc_string::*, omdb::Movie, twitter::*, youtube::*};
 
 #[derive(Debug)]
 struct CommandResponse {
@@ -248,6 +248,15 @@ impl IrcTask {
                                         break;
                                     }
 
+                                    if config.youtube.api_key.is_some() {
+                                        if let Some(id) = extract_youtube_id(&url) {
+                                            info!(self.log, "youtube"; "id" => %id, "channel" => %target, "source" => %nick);
+                                            let cmd = BotCommand::YouTube(id);
+                                            self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
+                                            continue;
+                                        }
+                                    }
+
                                     let cmd = BotCommand::Url(url.clone());
                                     info!(self.log, "lookup"; "url" => %url, "channel" => %target, "source" => %nick);
                                     self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
@@ -339,6 +348,9 @@ fn display_response(
         Info::Movie(movie) => {
             sender.send_privmsg(&target, format_movie(movie))?;
         }
+        Info::YouTube(item) => {
+            sender.send_privmsg(&target, format_youtube(item))?;
+        }
     }
 
     Ok(())
@@ -406,6 +418,30 @@ fn format_tweeter(user: &Tweeter) -> String {
             "".to_string()
         },
         user.created_at.format("%F %H:%M")
+    )
+}
+
+fn format_youtube(item: &YouTube) -> String {
+    let duration = item.duration;
+    let seconds = duration.as_secs() % 60;
+    let minutes = (duration.as_secs() / 60) % 60;
+    let hours = (duration.as_secs() / 60) / 60;
+
+    let duration = if hours > 0 {
+        format!("{}:{}:{:02}", hours, minutes, seconds)
+    } else {
+        format!("{}:{:02}", minutes, seconds)
+    };
+
+    format!(
+        "[\x0303YouTube\x0f] \x0304\x02\x02{title}\x0f - \"\x0300\x02\x02{desc}\x0f\", {views} views, +{likes}/-{dislikes}, [{duration}] - https://youtu.be/{id}",
+        title = item.title.trunc(40),
+        desc = item.description.trunc(200),
+        views = item.views,
+        likes = item.likes,
+        dislikes = item.dislikes,
+        duration = duration,
+        id = item.id
     )
 }
 

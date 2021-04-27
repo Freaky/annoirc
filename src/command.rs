@@ -19,7 +19,7 @@ use slog::{info, o, Logger};
 use tokio::time::timeout;
 use url::Url;
 
-use crate::{config::*, irc_string::*, omdb, twitter::*};
+use crate::{config::*, irc_string::*, omdb, twitter::*, youtube::*};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
@@ -32,6 +32,7 @@ pub struct UrlInfo {
 pub enum BotCommand {
     Url(Url),
     Omdb(String, String),
+    YouTube(String),
 }
 
 // Consider Boxing these, or moving the Arc internally
@@ -41,6 +42,7 @@ pub enum Info {
     Tweet(Tweet),
     Tweeter(Tweeter),
     Movie(omdb::Movie),
+    YouTube(YouTube)
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +69,7 @@ impl fmt::Display for BotCommand {
         match self {
             Self::Url(url) => write!(f, "Url({})", url),
             Self::Omdb(kind, search) => write!(f, "Omdb({}, {})", kind, search),
+            Self::YouTube(id) => write!(f, "YouTube({})", id),
         }
     }
 }
@@ -162,6 +165,9 @@ impl CommandHandler {
                 BotCommand::Url(url) => timeout(max_runtime, handler.handle_url(url)).await,
                 BotCommand::Omdb(kind, ref search) => {
                     timeout(max_runtime, handler.handle_omdb(kind, search)).await
+                },
+                BotCommand::YouTube(id) => {
+                    timeout(max_runtime, handler.handle_youtube(id)).await
                 }
             };
 
@@ -185,6 +191,16 @@ impl CommandHandler {
 
         if let Some(key) = &config.omdb.api_key {
             Ok(omdb::search(search, kind, key).await.map(Info::Movie)?)
+        } else {
+            Err(anyhow!("Unconfigured"))
+        }
+    }
+
+    async fn handle_youtube(&self, id: &str) -> Result<Info> {
+        let config = self.config.current();
+
+        if let Some(key) = &config.youtube.api_key {
+            Ok(youtube_lookup(id, key).await.map(Info::YouTube)?)
         } else {
             Err(anyhow!("Unconfigured"))
         }

@@ -10,7 +10,7 @@ A simple, efficient IRC bot for annotating Internet Relay Chat conversations.
 to help enhance the Chat Experience™.  This includes:
 
 * Title text and meta descriptions of websites.
-* Dedicated handling for IMDB, Twitter, and Wikipedia.
+* Dedicated handling for IMDB, Twitter, YouTube, and Wikipedia.
 * Pretty colours.
 * Other stuff at some point.
 
@@ -22,6 +22,7 @@ It's currently very young and should be deployed with care.
 * Efficient async Rust with request caching and deduplication.
 * Per-channel rate limits.
 * Graceful config reloads via `SIGHUP`.
+* Messy code.
 
 ## Usage
 
@@ -50,7 +51,7 @@ Configuring it to act as a daemon is system-specific and left as an exercise.
 * Better rate limits.
 * Gracefuler config reloads (any IRC changes currently involve a reconnection).
 * Fully templated responses with colour support.
-* Special handling for YouTube, Github, Imgur, etc.
+* Special handling for Github, Imgur, etc.
 * Functions such as weather, dictionary lookups, currency conversions, stocks, etc.
 
 ## See Also

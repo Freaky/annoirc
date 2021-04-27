@@ -27,6 +27,7 @@ pub struct BotConfig {
     pub url: UrlConfig,
     pub twitter: TwitterConfig,
     pub omdb: OmdbConfig,
+    pub youtube: YouTubeConfig,
     pub defaults: Config,
     pub network: HashMap<String, Config>,
 }
@@ -58,6 +59,12 @@ pub struct UrlConfig {
 #[derive(Default, Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields, default)]
 pub struct OmdbConfig {
+    pub api_key: Option<String>,
+}
+
+#[derive(Default, Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields, default)]
+pub struct YouTubeConfig {
     pub api_key: Option<String>,
 }
 

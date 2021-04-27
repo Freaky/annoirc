@@ -12,6 +12,7 @@ mod irc;
 mod irc_string;
 mod omdb;
 mod twitter;
+mod youtube;
 
 use crate::{command::*, config::*, irc::*};
 

@@ -45,11 +45,15 @@ ignore_url_regex = ['imgur\.com/']
 
 [twitter]
 ## Apply for API access at https://developer.twitter.com/
-# bearer_token = ""
+# bearer_token = "..."
 
 [omdb]
 ## Apply for API access at https://www.omdbapi.com/apikey.aspx
-# api_key = ""
+# api_key = "..."
+
+[youtube]
+## Apply for API access at https://console.cloud.google.com/apis/api/youtube.googleapis.com
+# api_key = "..."
 
 [network.example]
 nickname = "annobot"

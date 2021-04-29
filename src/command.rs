@@ -32,7 +32,6 @@ pub struct UrlInfo {
 pub enum BotCommand {
     Url(Url),
     Omdb(String, String),
-    YouTube(String),
     Wolfram(String),
 }
 
@@ -71,7 +70,6 @@ impl fmt::Display for BotCommand {
         match self {
             Self::Url(url) => write!(f, "Url({})", url),
             Self::Omdb(kind, search) => write!(f, "Omdb({}, {})", kind, search),
-            Self::YouTube(id) => write!(f, "YouTube({})", id),
             Self::Wolfram(query) => write!(f, "Wolfram({})", query),
         }
     }
@@ -169,7 +167,6 @@ impl CommandHandler {
                 BotCommand::Omdb(kind, ref search) => {
                     timeout(max_runtime, handler.handle_omdb(kind, search)).await
                 }
-                BotCommand::YouTube(id) => timeout(max_runtime, handler.handle_youtube(id)).await,
                 BotCommand::Wolfram(query) => {
                     timeout(max_runtime, handler.handle_wolfram(query)).await
                 }
@@ -195,16 +192,6 @@ impl CommandHandler {
 
         if let Some(key) = &config.omdb.api_key {
             Ok(omdb::search(search, kind, key).await.map(Info::Movie)?)
-        } else {
-            Err(anyhow!("Unconfigured"))
-        }
-    }
-
-    async fn handle_youtube(&self, id: &str) -> Result<Info> {
-        let config = self.config.current();
-
-        if config.youtube.api_key.is_some() {
-            Ok(youtube_lookup(id, &config.youtube).await.map(Info::YouTube)?)
         } else {
             Err(anyhow!("Unconfigured"))
         }
@@ -257,6 +244,20 @@ impl CommandHandler {
                         return self.fetch_wikipedia(lang, article).await.map(Info::Url);
                     }
                 }
+            }
+        }
+
+        if config.youtube.api_key.is_some() {
+            // rustube doesn't handle &t= etc
+            let mut yurl = url.clone();
+            yurl.set_query(None);
+            if let Some((_, v)) = url.query_pairs().filter(|(k, _)| k == "v").next() {
+                yurl.query_pairs_mut()
+                    .append_pair("v", &v);
+            }
+
+            if let Some(id) = extract_youtube_id(&yurl) {
+                return youtube_lookup(&id, &config.youtube).await.map(Info::YouTube);
             }
         }
 

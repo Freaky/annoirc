@@ -19,7 +19,7 @@ use slog::{info, o, Logger};
 use tokio::time::timeout;
 use url::Url;
 
-use crate::{config::*, irc_string::*, omdb, twitter::*, youtube::*, wolfram::*};
+use crate::{config::*, irc_string::*, omdb, twitter::*, wolfram::*, youtube::*};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
@@ -168,10 +168,8 @@ impl CommandHandler {
                 BotCommand::Url(url) => timeout(max_runtime, handler.handle_url(url)).await,
                 BotCommand::Omdb(kind, ref search) => {
                     timeout(max_runtime, handler.handle_omdb(kind, search)).await
-                },
-                BotCommand::YouTube(id) => {
-                    timeout(max_runtime, handler.handle_youtube(id)).await
                 }
+                BotCommand::YouTube(id) => timeout(max_runtime, handler.handle_youtube(id)).await,
                 BotCommand::Wolfram(query) => {
                     timeout(max_runtime, handler.handle_wolfram(query)).await
                 }

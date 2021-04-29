@@ -357,7 +357,13 @@ fn display_response(
             sender.send_privmsg(&target, format_youtube(item))?;
         }
         Info::Wolfram(response) => {
-            sender.send_privmsg(&target, format!("[\x0303\x02\x02WolframAlpha\x0f] \x0300\x02\x02{}\x0f", response))?;
+            sender.send_privmsg(
+                &target,
+                format!(
+                    "[\x0303\x02\x02WolframAlpha\x0f] \x0300\x02\x02{}\x0f",
+                    response
+                ),
+            )?;
         }
     }
 

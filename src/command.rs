@@ -203,8 +203,8 @@ impl CommandHandler {
     async fn handle_youtube(&self, id: &str) -> Result<Info> {
         let config = self.config.current();
 
-        if let Some(key) = &config.youtube.api_key {
-            Ok(youtube_lookup(id, key).await.map(Info::YouTube)?)
+        if config.youtube.api_key.is_some() {
+            Ok(youtube_lookup(id, &config.youtube).await.map(Info::YouTube)?)
         } else {
             Err(anyhow!("Unconfigured"))
         }

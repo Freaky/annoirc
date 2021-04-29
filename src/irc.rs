@@ -254,6 +254,7 @@ impl IrcTask {
                                     }
 
                                     if config.youtube.api_key.is_some() {
+                                        // rustube doesn't handle &t= etc
                                         let mut yurl = url.clone();
                                         yurl.set_query(None);
                                         if let Some((_, v)) = url.query_pairs().filter(|(k, _)| k == "v").next() {

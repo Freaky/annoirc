@@ -5,7 +5,7 @@ use iso8601_duration::Duration as IsoDuration;
 use serde::Deserialize;
 use url::Url;
 
-use crate::irc_string::IrcString;
+use crate::{irc_string::IrcString, config::YouTubeConfig};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct YouTube {
@@ -88,14 +88,14 @@ pub fn extract_youtube_id(url: &Url) -> Option<String> {
         .map(|s| s.as_str().to_string())
 }
 
-pub async fn youtube_lookup(id: &str, key: &str) -> Result<YouTube> {
+pub async fn youtube_lookup(id: &str, config: &YouTubeConfig) -> Result<YouTube> {
     let client = reqwest::Client::new();
     let mut response = client
         .get("https://www.googleapis.com/youtube/v3/videos")
         .query(&[
             ("id", id),
-            ("key", key),
-            ("hl", "en-GB"), // TODO: make this configurable
+            ("key", &config.api_key.clone().unwrap_or_default()),
+            ("hl", &config.lang.clone().unwrap_or_default()),
             ("part", "snippet,contentDetails,statistics"),
         ])
         .send()

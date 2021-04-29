@@ -67,6 +67,7 @@ pub struct OmdbConfig {
 #[serde(deny_unknown_fields, default)]
 pub struct YouTubeConfig {
     pub api_key: Option<String>,
+    pub lang: Option<String>,
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]

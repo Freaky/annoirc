@@ -55,6 +55,10 @@ ignore_url_regex = ['imgur\.com/']
 ## Apply for API access at https://console.cloud.google.com/apis/api/youtube.googleapis.com
 # api_key = "..."
 
+[wolfram]
+## Apply for API access at https://developer.wolframalpha.com/
+# app_id = "..."
+
 [network.example]
 nickname = "annobot"
 alt_nicks = ["annobot_", "annobot__"]

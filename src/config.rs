@@ -28,6 +28,7 @@ pub struct BotConfig {
     pub twitter: TwitterConfig,
     pub omdb: OmdbConfig,
     pub youtube: YouTubeConfig,
+    pub wolfram: WolframConfig,
     pub defaults: Config,
     pub network: HashMap<String, Config>,
 }
@@ -66,6 +67,12 @@ pub struct OmdbConfig {
 #[serde(deny_unknown_fields, default)]
 pub struct YouTubeConfig {
     pub api_key: Option<String>,
+}
+
+#[derive(Default, Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields, default)]
+pub struct WolframConfig {
+    pub app_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

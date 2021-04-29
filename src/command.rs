@@ -19,7 +19,7 @@ use slog::{info, o, Logger};
 use tokio::time::timeout;
 use url::Url;
 
-use crate::{config::*, irc_string::*, omdb, twitter::*, youtube::*};
+use crate::{config::*, irc_string::*, omdb, twitter::*, youtube::*, wolfram::*};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
@@ -33,6 +33,7 @@ pub enum BotCommand {
     Url(Url),
     Omdb(String, String),
     YouTube(String),
+    Wolfram(String),
 }
 
 // Consider Boxing these, or moving the Arc internally
@@ -42,7 +43,8 @@ pub enum Info {
     Tweet(Tweet),
     Tweeter(Tweeter),
     Movie(omdb::Movie),
-    YouTube(YouTube)
+    YouTube(YouTube),
+    Wolfram(IrcString),
 }
 
 #[derive(Debug, Deserialize)]
@@ -70,6 +72,7 @@ impl fmt::Display for BotCommand {
             Self::Url(url) => write!(f, "Url({})", url),
             Self::Omdb(kind, search) => write!(f, "Omdb({}, {})", kind, search),
             Self::YouTube(id) => write!(f, "YouTube({})", id),
+            Self::Wolfram(query) => write!(f, "Wolfram({})", query),
         }
     }
 }
@@ -169,6 +172,9 @@ impl CommandHandler {
                 BotCommand::YouTube(id) => {
                     timeout(max_runtime, handler.handle_youtube(id)).await
                 }
+                BotCommand::Wolfram(query) => {
+                    timeout(max_runtime, handler.handle_wolfram(query)).await
+                }
             };
 
             match res {
@@ -201,6 +207,16 @@ impl CommandHandler {
 
         if let Some(key) = &config.youtube.api_key {
             Ok(youtube_lookup(id, key).await.map(Info::YouTube)?)
+        } else {
+            Err(anyhow!("Unconfigured"))
+        }
+    }
+
+    async fn handle_wolfram(&self, query: &str) -> Result<Info> {
+        let config = self.config.current();
+
+        if let Some(key) = &config.wolfram.app_id {
+            Ok(wolfram_query(query, key).await.map(Info::Wolfram)?)
         } else {
             Err(anyhow!("Unconfigured"))
         }

@@ -213,26 +213,31 @@ impl IrcTask {
                                     continue;
                                 }
 
-                                if config.omdb.api_key.is_some() && content.starts_with(&config.command.prefix) {
+                                if content.starts_with(&config.command.prefix) {
                                     let command = &content[config.command.prefix.len()..].split_whitespace().collect::<Vec<&str>>();
-                                    if command.len() < 2 {
-                                        continue;
-                                    }
-                                    let search = itertools::join(command[1..].iter(), " ");
-                                    match &command[0].to_lowercase()[..] {
-                                        "film" | "movie" => {
-                                            let cmd = BotCommand::Omdb("movie".to_string(), search.clone());
-                                            info!(self.log, "omdb"; "kind" => "film", "search" => search, "channel" => %target, "source" => %nick);
-                                            self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
-                                            continue;
+                                    if command.len() > 1 {
+                                        let search = itertools::join(command[1..].iter(), " ");
+                                        match &command[0].to_lowercase()[..] {
+                                            "film" | "movie" if config.omdb.api_key.is_some() => {
+                                                let cmd = BotCommand::Omdb("movie".to_string(), search.clone());
+                                                info!(self.log, "omdb"; "kind" => "film", "search" => search, "channel" => %target, "source" => %nick);
+                                                self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
+                                                continue;
+                                            }
+                                            "show" | "series" | "tv" if config.omdb.api_key.is_some() => {
+                                                let cmd = BotCommand::Omdb("series".to_string(), search.clone());
+                                                info!(self.log, "omdb"; "kind" => "series", "search" => search, "channel" => %target, "source" => %nick);
+                                                self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
+                                                continue;
+                                            }
+                                            "wolfram" | "calc" if config.wolfram.app_id.is_some() => {
+                                                let cmd = BotCommand::Wolfram(search.clone());
+                                                info!(self.log, "wolfram"; "query" => search, "channel" => %target, "source" => %nick);
+                                                self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
+                                                continue;
+                                            }
+                                            _ => {}
                                         }
-                                        "show" | "series" | "tv" => {
-                                            let cmd = BotCommand::Omdb("series".to_string(), search.clone());
-                                            info!(self.log, "omdb"; "kind" => "series", "search" => search, "channel" => %target, "source" => %nick);
-                                            self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
-                                            continue;
-                                        }
-                                        _ => {}
                                     }
                                 }
 
@@ -350,6 +355,9 @@ fn display_response(
         }
         Info::YouTube(item) => {
             sender.send_privmsg(&target, format_youtube(item))?;
+        }
+        Info::Wolfram(response) => {
+            sender.send_privmsg(&target, format!("[\x0303\x02\x02WolframAlpha\x0f] \x0300\x02\x02{}\x0f", response))?;
         }
     }
 

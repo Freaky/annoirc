@@ -252,12 +252,13 @@ impl CommandHandler {
             let mut yurl = url.clone();
             yurl.set_query(None);
             if let Some((_, v)) = url.query_pairs().filter(|(k, _)| k == "v").next() {
-                yurl.query_pairs_mut()
-                    .append_pair("v", &v);
+                yurl.query_pairs_mut().append_pair("v", &v);
             }
 
             if let Some(id) = extract_youtube_id(&yurl) {
-                return youtube_lookup(&id, &config.youtube).await.map(Info::YouTube);
+                return youtube_lookup(&id, &config.youtube)
+                    .await
+                    .map(Info::YouTube);
             }
         }
 

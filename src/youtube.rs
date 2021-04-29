@@ -5,7 +5,7 @@ use iso8601_duration::Duration as IsoDuration;
 use serde::Deserialize;
 use url::Url;
 
-use crate::{irc_string::IrcString, config::YouTubeConfig};
+use crate::{config::YouTubeConfig, irc_string::IrcString};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct YouTube {

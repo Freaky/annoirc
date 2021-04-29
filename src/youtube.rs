@@ -41,6 +41,14 @@ struct YouTubeSnippet {
     description: String,
     channel_title: String,
     published_at: String,
+    localized: YouTubeLocalised,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct YouTubeLocalised {
+    title: String,
+    description: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,8 +69,8 @@ impl From<YouTubeItem> for YouTube {
     fn from(y: YouTubeItem) -> Self {
         YouTube {
             id: y.id.into(),
-            title: y.snippet.title.into(),
-            description: y.snippet.description.into(),
+            title: y.snippet.localized.title.into(),
+            description: y.snippet.localized.description.into(),
             channel: y.snippet.channel_title.into(),
             duration: IsoDuration::parse(&y.content_details.duration)
                 .map(|d| d.to_std())
@@ -87,6 +95,7 @@ pub async fn youtube_lookup(id: &str, key: &str) -> Result<YouTube> {
         .query(&[
             ("id", id),
             ("key", key),
+            ("hl", "en-GB"), // TODO: make this configurable
             ("part", "snippet,contentDetails,statistics"),
         ])
         .send()

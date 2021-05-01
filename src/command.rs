@@ -43,7 +43,7 @@ pub enum Info {
     Tweeter(Tweeter),
     Movie(omdb::Movie),
     YouTube(YouTube),
-    Wolfram(IrcString),
+    Wolfram(Vec<WolframPod>),
 }
 
 #[derive(Debug, Deserialize)]

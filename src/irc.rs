@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{fmt::Write, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use egg_mode_text::url_entities;
@@ -12,7 +12,9 @@ use tokio::{task::JoinHandle, time::Instant};
 use tokio_stream::StreamExt;
 use url::Url;
 
-use crate::{command::*, config::*, irc_string::*, omdb::Movie, twitter::*, youtube::*};
+use crate::{
+    command::*, config::*, irc_string::*, omdb::Movie, twitter::*, wolfram::WolframPod, youtube::*,
+};
 
 #[derive(Debug)]
 struct CommandResponse {
@@ -348,13 +350,7 @@ fn display_response(
             sender.send_privmsg(&target, format_youtube(item))?;
         }
         Info::Wolfram(response) => {
-            sender.send_privmsg(
-                &target,
-                format!(
-                    "[\x0303\x02\x02WolframAlpha\x0f] \x0300\x02\x02{}\x0f",
-                    response
-                ),
-            )?;
+            sender.send_privmsg(&target, format_wolfram(response))?;
         }
     }
 
@@ -448,6 +444,30 @@ fn format_youtube(item: &YouTube) -> String {
         duration = duration,
         id = item.id
     )
+}
+
+fn format_wolfram(pods: &[WolframPod]) -> String {
+    assert!(pods.len() > 1);
+
+    let mut ret = format!(
+        "[\x0303WolframAlpha\x0f] \x0304\x02\x02{title}\x0f: \x0300\x02\x02{value}\x0f",
+        title = pods[1].title.trunc(40),
+        value = pods[1].values[0].trunc(200),
+    );
+
+    if pods.len() > 2 {
+        if pods[2].id == "DecimalApproximation" || pods[2].id == "DecimalForm" {
+            write!(
+                ret,
+                ", \x0304\x02\x02{title}\x0f: \x0300\x02\x02{value}\x0f",
+                title = pods[2].title,
+                value = pods[2].values[0].trunc(150),
+            )
+            .expect("write to String can't fail");
+        }
+    }
+
+    ret
 }
 
 fn parse_url(text: &str, scheme_required: bool) -> Result<Url, url::ParseError> {

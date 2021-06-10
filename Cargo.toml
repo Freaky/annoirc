@@ -36,6 +36,6 @@ tokio-stream = { version = "0.1.1", features = ["time", "net"] }
 toml = "0.5.7"
 unicode-segmentation = "1.7.0"
 url = "2.2"
-omdb = { git = "https://github.com/Freaky/omdb-rs.git", rev = "7475d916841152c88b7df245bb7459d2a1b18a1a" }
+omdb = "0.3.2"
 iso8601-duration = "0.1.0"
-rustube = { version = "0.2.10", features = ["std"], default-features = false }
+rustube = { version = "0.3.2", features = ["std"], default-features = false }

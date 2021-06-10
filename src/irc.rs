@@ -435,14 +435,13 @@ fn format_youtube(item: &YouTube) -> String {
     };
 
     format!(
-        "[\x0303YouTube\x0f] \x0304\x02\x02{title}\x0f - \"\x0300\x02\x02{desc}\x0f\", {views} views, +{likes}/-{dislikes}, [{duration}] - https://youtu.be/{id}",
+        "[\x0303YouTube\x0f] \x0304\x02\x02{title}\x0f - \"\x0300\x02\x02{desc}\x0f\", {views} views, +{likes}/-{dislikes}, [{duration}]",
         title = item.title.trunc(40),
         desc = item.description.trunc(200),
         views = item.views,
         likes = item.likes,
         dislikes = item.dislikes,
         duration = duration,
-        id = item.id
     )
 }
 

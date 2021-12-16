@@ -16,7 +16,7 @@ pub struct YouTube {
     pub channel: IrcString,     // items[0]/snippet/channelTitle
     pub views: u64,             // items[0]/statistics/viewCount
     pub likes: u64,             // items[0]/statistics/likeCount
-    pub dislikes: u64,          // items[0]/statistics/dislikeCount
+    // pub dislikes: u64,          // items[0]/statistics/dislikeCount
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,7 +62,7 @@ struct YouTubeDetails {
 struct YouTubeStats {
     view_count: String,
     like_count: String,
-    dislike_count: String,
+    // dislike_count: String,
 }
 
 impl From<YouTubeItem> for YouTube {
@@ -77,7 +77,7 @@ impl From<YouTubeItem> for YouTube {
                 .unwrap_or_default(),
             views: y.statistics.view_count.parse().unwrap_or_default(),
             likes: y.statistics.like_count.parse().unwrap_or_default(),
-            dislikes: y.statistics.dislike_count.parse().unwrap_or_default(),
+            // dislikes: y.statistics.dislike_count.parse().unwrap_or_default(),
         }
     }
 }

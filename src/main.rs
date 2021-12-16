@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use clap::Clap;
+use clap::Parser;
 use futures::stream::FuturesUnordered;
 use slog::{crit, o, warn, Drain, Level, Logger};
 use tokio_stream::StreamExt;
@@ -17,7 +17,7 @@ mod youtube;
 
 use crate::{command::*, config::*, irc::*};
 
-#[derive(Clap, Debug, Clone)]
+#[derive(Parser, Debug, Clone)]
 struct Args {
     #[clap(short, long, default_value = "annoirc.toml")]
     config: PathBuf,

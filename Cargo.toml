@@ -10,7 +10,7 @@ edition = "2018"
 anyhow = "1.0.34"
 chrono = "0.4.19"
 clap = { version = "3.0.0-rc.7", features = ["derive"] }
-egg-mode = { git  = "https://github.com/egg-mode-rs/egg-mode.git", rev = "6b81073eba9c3b123ca0e80bdb5ef61d1758f131", features = ["rustls"], default-features = false }
+egg-mode = { version = "0.16.0", features = ["rustls"], default-features = false }
 egg-mode-text = { git = "https://github.com/Freaky/egg-mode-text.git", branch = "update-deps" }
 futures = "0.3.8"
 governor = "0.4"

@@ -13,7 +13,7 @@ clap = { version = "3.0.0-rc.7", features = ["derive"] }
 egg-mode = { git  = "https://github.com/egg-mode-rs/egg-mode.git", rev = "6b81073eba9c3b123ca0e80bdb5ef61d1758f131", features = ["rustls"], default-features = false }
 egg-mode-text = { git = "https://github.com/Freaky/egg-mode-text.git", branch = "update-deps" }
 futures = "0.3.8"
-governor = "0.3.1"
+governor = "0.4"
 html-escape = "0.2.6"
 ip_rfc = "0.1.0"
 irc = { version = "0.15", features = ["serde", "tls-rust"], default-features = false }
@@ -22,7 +22,7 @@ lazy_static = "1.4.0"
 log = "0.4.11"
 lru_time_cache = "0.11.2"
 mime = "0.3.16"
-nonzero_ext = "0.2.0"
+nonzero_ext = "0.3.0"
 regex = "1.4.2"
 reqwest = { version = "0.11", features = ["brotli", "cookies", "gzip", "json", "rustls-tls", "rustls-tls-webpki-roots"], default-features = false }
 scraper = "0.12.0"

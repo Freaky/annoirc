@@ -25,7 +25,7 @@ mime = "0.3.16"
 nonzero_ext = "0.3.0"
 regex = "1.4.2"
 reqwest = { version = "0.11", features = ["brotli", "cookies", "gzip", "json", "rustls-tls", "rustls-tls-webpki-roots"], default-features = false }
-scraper = "0.12.0"
+scraper = "0.13.0"
 serde = "1.0.117"
 serde_json = "1.0.59"
 slog = "2.7"

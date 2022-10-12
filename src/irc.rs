@@ -7,6 +7,7 @@ use governor::{Quota, RateLimiter};
 use irc::client::prelude::*;
 use itertools::Itertools;
 use nonzero_ext::*;
+use num_format::{Locale, ToFormattedString};
 use slog::{error, info, o, warn, Logger};
 use tokio::{task::JoinHandle, time::Instant};
 use tokio_stream::StreamExt;
@@ -386,7 +387,10 @@ fn format_tweet(tweet: &Tweet, tag: &str) -> String {
             if tweet.favourite_count == 0 {
                 "".to_string()
             } else {
-                format!("❤️{}", tweet.favourite_count)
+                format!(
+                    "❤️{}",
+                    tweet.favourite_count.to_formatted_string(&Locale::en)
+                )
             },
             tweet.created_at.format("%F %H:%M")
         )
@@ -398,7 +402,10 @@ fn format_tweet(tweet: &Tweet, tag: &str) -> String {
             if tweet.favourite_count == 0 {
                 "".to_string()
             } else {
-                format!("❤️{}", tweet.favourite_count)
+                format!(
+                    "❤️{}",
+                    tweet.favourite_count.to_formatted_string(&Locale::en)
+                )
             },
             tweet.created_at.format("%F %H:%M")
         )
@@ -411,8 +418,8 @@ fn format_tweeter(user: &Tweeter) -> String {
         user.name.trunc(30),
         if user.verified { "✓" } else { "" },
         user.screen_name.trunc(30),
-        user.statuses_count,
-        user.followers_count,
+        user.statuses_count.to_formatted_string(&Locale::en),
+        user.followers_count.to_formatted_string(&Locale::en),
         if let Some(ref desc) = user.description {
             format!("\"\x0300\x02\x02{}\x0f\", ", desc.trunc(300))
         } else {
@@ -435,12 +442,13 @@ fn format_youtube(item: &YouTube) -> String {
     };
 
     format!(
-        "[\x0303{channel}\x0f] \x0304\x02\x02{title}\x0f - \"\x0300\x02\x02{desc}\x0f\", {views} views, +{likes}, [{duration}]",
+        "[\x0303{channel}\x0f{date}] \x0304\x02\x02{title}\x0f - \"\x0300\x02\x02{desc}\x0f\" [{duration}] {views} views ❤️{likes}",
         title = item.title.trunc(40),
         desc = item.description.trunc(200),
         channel = item.channel.trunc(16),
-        views = item.views,
-        likes = item.likes,
+        views = item.views.to_formatted_string(&Locale::en),
+        likes = item.likes.to_formatted_string(&Locale::en),
+        date = item.published_at.map(|d| d.format(" @ %Y-%m-%d").to_string()).unwrap_or_default(),
         duration = duration,
     )
 }

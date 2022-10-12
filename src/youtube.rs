@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
+use chrono::{offset, DateTime};
 use iso8601_duration::Duration as IsoDuration;
 use serde::Deserialize;
 use url::Url;
@@ -12,11 +13,11 @@ pub struct YouTube {
     pub id: IrcString,
     pub title: IrcString,       // items[0]/snippet/title
     pub description: IrcString, // items[0]/snippet/description
+    pub published_at: Option<DateTime<offset::FixedOffset>>, // items[0]/snippet/published_at
     pub duration: Duration,     // items[0]/contentDetails/duration
     pub channel: IrcString,     // items[0]/snippet/channelTitle
     pub views: u64,             // items[0]/statistics/viewCount
     pub likes: u64,             // items[0]/statistics/likeCount
-    // pub dislikes: u64,          // items[0]/statistics/dislikeCount
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,6 +73,7 @@ impl From<YouTubeItem> for YouTube {
             title: y.snippet.localized.title.into(),
             description: y.snippet.localized.description.into(),
             channel: y.snippet.channel_title.into(),
+            published_at: DateTime::parse_from_rfc3339(&y.snippet.published_at).ok(),
             duration: IsoDuration::parse(&y.content_details.duration)
                 .map(|d| d.to_std())
                 .unwrap_or_default(),

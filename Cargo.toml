@@ -39,3 +39,4 @@ url = "2.2"
 omdb = "0.3.2"
 iso8601-duration = "0.1.0"
 rustube = { version = "0.5", features = ["std"], default-features = false }
+num-format = "0.4.3"

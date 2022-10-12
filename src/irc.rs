@@ -462,16 +462,14 @@ fn format_wolfram(pods: &[WolframPod]) -> String {
         value = pods[1].values[0].trunc(200),
     );
 
-    if pods.len() > 2 {
-        if pods[2].id == "DecimalApproximation" || pods[2].id == "DecimalForm" {
-            write!(
-                ret,
-                ", \x0304\x02\x02{title}\x0f: \x0300\x02\x02{value}\x0f",
-                title = pods[2].title,
-                value = pods[2].values[0].trunc(150),
-            )
-            .expect("write to String can't fail");
-        }
+    if pods.len() > 2 && pods[2].id == "DecimalApproximation" || pods[2].id == "DecimalForm" {
+        write!(
+            ret,
+            ", \x0304\x02\x02{title}\x0f: \x0300\x02\x02{value}\x0f",
+            title = pods[2].title,
+            value = pods[2].values[0].trunc(150),
+        )
+        .expect("write to String can't fail");
     }
 
     ret

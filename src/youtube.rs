@@ -63,7 +63,6 @@ struct YouTubeDetails {
 struct YouTubeStats {
     view_count: String,
     like_count: String,
-    // dislike_count: String,
 }
 
 impl From<YouTubeItem> for YouTube {
@@ -79,15 +78,75 @@ impl From<YouTubeItem> for YouTube {
                 .unwrap_or_default(),
             views: y.statistics.view_count.parse().unwrap_or_default(),
             likes: y.statistics.like_count.parse().unwrap_or_default(),
-            // dislikes: y.statistics.dislike_count.parse().unwrap_or_default(),
         }
     }
 }
 
+fn maybe_id(id: &str) -> Option<String> {
+    if id.len() == 11
+        && id
+            .chars()
+            .all(|c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'))
+    {
+        Some(id.to_string())
+    } else {
+        None
+    }
+}
+
 pub fn extract_youtube_id(url: &Url) -> Option<String> {
-    rustube::Id::from_raw(url.as_str())
-        .ok()
-        .map(|s| s.as_str().to_string())
+    match url.domain()? {
+        "youtu.be" => maybe_id(url.path_segments()?.next()?),
+        "www.youtube.com" | "youtube.com" => match url.path_segments()?.next()? {
+            "shorts" | "embed" => maybe_id(url.path_segments()?.nth(1)?),
+            "watch" => url
+                .query_pairs()
+                .find(|(key, _)| key == "v")
+                .and_then(|(_, val)| maybe_id(&val)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+#[test]
+fn test_extract_youtube_id() {
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://youtu.be/a123456789Z").unwrap()),
+        Some("a123456789Z".to_string())
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://youtu.be/a123@56789Z").unwrap()),
+        None
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://youtu.be/a123456789zZ").unwrap()),
+        None
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://youtube.com/watch?v=a123456789Z&t=42m").unwrap()),
+        Some("a123456789Z".to_string())
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://www.youtube.com/watch?v=a123456789Z").unwrap()),
+        Some("a123456789Z".to_string())
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://youtube.com/shorts/a123456789Z").unwrap()),
+        Some("a123456789Z".to_string())
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://youtube.com/embed/a123456789Z").unwrap()),
+        Some("a123456789Z".to_string())
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://www.youtube.com/a123456789Z").unwrap()),
+        None
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://youtube/a123456789Z").unwrap()),
+        None
+    );
 }
 
 pub async fn youtube_lookup(id: &str, config: &YouTubeConfig) -> Result<YouTube> {

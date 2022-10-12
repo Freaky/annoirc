@@ -248,14 +248,7 @@ impl CommandHandler {
         }
 
         if config.youtube.api_key.is_some() {
-            // rustube doesn't handle &t= etc
-            let mut yurl = url.clone();
-            yurl.set_query(None);
-            if let Some((_, v)) = url.query_pairs().filter(|(k, _)| k == "v").next() {
-                yurl.query_pairs_mut().append_pair("v", &v);
-            }
-
-            if let Some(id) = extract_youtube_id(&yurl) {
+            if let Some(id) = extract_youtube_id(&url) {
                 return youtube_lookup(&id, &config.youtube)
                     .await
                     .map(Info::YouTube);

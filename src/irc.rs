@@ -1,4 +1,4 @@
-use std::{fmt::Write, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use egg_mode_text::url_entities;
@@ -351,7 +351,9 @@ fn display_response(
             sender.send_privmsg(&target, format_youtube(item))?;
         }
         Info::Wolfram(response) => {
-            sender.send_privmsg(&target, format_wolfram(response))?;
+            for pod in format_wolfram(response) {
+                sender.send_privmsg(&target, pod)?;
+            }
         }
     }
 
@@ -453,26 +455,17 @@ fn format_youtube(item: &YouTube) -> String {
     )
 }
 
-fn format_wolfram(pods: &[WolframPod]) -> String {
-    assert!(pods.len() > 1);
-
-    let mut ret = format!(
-        "[\x0303WolframAlpha\x0f] \x0304\x02\x02{title}\x0f: \x0300\x02\x02{value}\x0f",
-        title = pods[1].title.trunc(40),
-        value = pods[1].values[0].trunc(200),
-    );
-
-    if pods.len() > 2 && pods[2].id == "DecimalApproximation" || pods[2].id == "DecimalForm" {
-        write!(
-            ret,
-            ", \x0304\x02\x02{title}\x0f: \x0300\x02\x02{value}\x0f",
-            title = pods[2].title,
-            value = pods[2].values[0].trunc(150),
-        )
-        .expect("write to String can't fail");
-    }
-
-    ret
+fn format_wolfram(pods: &[WolframPod]) -> Vec<String> {
+    pods.iter()
+        .take(3)
+        .map(|pod| {
+            format!(
+                "[\x0303WolframAlpha\x0f] \x0304\x02\x02{title}\x0f: \x0300\x02\x02{value}\x0f",
+                title = pod.title.trunc(40),
+                value = pod.values[0].trunc(200),
+            )
+        })
+        .collect()
 }
 
 fn parse_url(text: &str, scheme_required: bool) -> Result<Url, url::ParseError> {

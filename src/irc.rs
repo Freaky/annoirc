@@ -201,7 +201,7 @@ impl IrcTask {
                                 }
                             }
                         }
-                        Command::INVITE(target, channel) if target == client.current_nickname() && netconf.channels.contains(&channel) => {
+                        Command::INVITE(target, channel) if target == client.current_nickname() && netconf.channels.contains(channel) => {
                             warn!(self.log, "invited"; "channel" => channel, "source" => message_source(&message));
                             // TODO: channel keys
                             client.send_join(channel)?;
@@ -212,7 +212,7 @@ impl IrcTask {
                         Command::PRIVMSG(target, content) => {
                             if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
                                 // Avoid responding to ourselves, CTCPs, coloured text (usually other bots), and any target we're not configured for
-                                if nick == client.current_nickname() || content.starts_with('\x01') || content.contains('\x03') || !netconf.channels.contains(&target) {
+                                if nick == client.current_nickname() || content.starts_with('\x01') || content.contains('\x03') || !netconf.channels.contains(target) {
                                     continue;
                                 }
 
@@ -295,7 +295,7 @@ impl IrcTask {
         self.handler.spawn(cmd).map(move |fut| {
             fut.map_ok(move |res| {
                 if let Ok(res) = &*res {
-                    display_response(&res, &target, sender, config)
+                    display_response(res, &target, sender, config)
                 } else {
                     Ok(())
                 }
@@ -322,7 +322,7 @@ fn display_response(
         Info::Url(info) => {
             let host = sanitize(info.url.host_str().unwrap_or(""), 30);
             sender.send_privmsg(
-                &target,
+                target,
                 format!(
                     "[\x0303\x02\x02{}\x0f] \x0300\x02\x02{}\x0f",
                     host,
@@ -331,7 +331,7 @@ fn display_response(
             )?;
             if let (true, Some(desc)) = (config.url.include_description, &info.desc) {
                 sender.send_privmsg(
-                    &target,
+                    target,
                     format!(
                         "[\x0303{}\x02\x02\x0f] \x0300\x02\x02{}\x0f",
                         host,
@@ -341,29 +341,29 @@ fn display_response(
             }
         }
         Info::Tweet(tweet) => {
-            sender.send_privmsg(&target, format_tweet(tweet, "Twitter"))?;
+            sender.send_privmsg(target, format_tweet(tweet, "Twitter"))?;
             if let Some(quote) = &tweet.quote {
-                sender.send_privmsg(&target, format_tweet(quote, "Retweet"))?;
+                sender.send_privmsg(target, format_tweet(quote, "Retweet"))?;
             }
             if let Some(retweet) = &tweet.retweet {
-                sender.send_privmsg(&target, format_tweet(retweet, "Retweet"))?;
+                sender.send_privmsg(target, format_tweet(retweet, "Retweet"))?;
             }
         }
         Info::Tweeter(user) => {
-            sender.send_privmsg(&target, format_tweeter(user))?;
+            sender.send_privmsg(target, format_tweeter(user))?;
             if let Some(tweet) = &user.status {
-                sender.send_privmsg(&target, format_tweet(tweet, " Status"))?;
+                sender.send_privmsg(target, format_tweet(tweet, " Status"))?;
             }
         }
         Info::Movie(movie) => {
-            sender.send_privmsg(&target, format_movie(movie))?;
+            sender.send_privmsg(target, format_movie(movie))?;
         }
         Info::YouTube(item) => {
-            sender.send_privmsg(&target, format_youtube(item))?;
+            sender.send_privmsg(target, format_youtube(item))?;
         }
         Info::Wolfram(response) => {
             for pod in format_wolfram(response) {
-                sender.send_privmsg(&target, pod)?;
+                sender.send_privmsg(target, pod)?;
             }
         }
     }

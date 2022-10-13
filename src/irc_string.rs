@@ -45,7 +45,7 @@ pub fn sanitize(text: &str, max_bytes: usize) -> String {
     }
 
     let text = join(
-        text.split_whitespace().map(|s| CONTROL.replace_all(&s, "")),
+        text.split_whitespace().map(|s| CONTROL.replace_all(s, "")),
         " ",
     );
 

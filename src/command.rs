@@ -248,7 +248,7 @@ impl CommandHandler {
         }
 
         if config.youtube.api_key.is_some() {
-            if let Some(id) = extract_youtube_id(&url) {
+            if let Some(id) = extract_youtube_id(url) {
                 return youtube_lookup(&id, &config.youtube)
                     .await
                     .map(Info::YouTube);

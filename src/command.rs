@@ -31,7 +31,7 @@ pub struct UrlInfo {
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum BotCommand {
     Url(Url),
-    Omdb(String, String),
+    Omdb(&'static str, String),
     Wolfram(String),
 }
 

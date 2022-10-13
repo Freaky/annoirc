@@ -1,4 +1,5 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use omdb::Kind;
 
 use crate::irc_string::IrcString;
 
@@ -36,19 +37,18 @@ impl From<omdb::Movie> for Movie {
 }
 
 pub async fn imdb_id(id: &str, key: &str) -> Result<Movie> {
-    let movie = omdb::imdb_id(id).apikey(key).get().await?;
-
-    Ok(movie.into())
+    Ok(omdb::imdb_id(id).apikey(key).get().await?.into())
 }
 
+// king as an omdb::Kind would be nicer, but it lacks appropriate derives
 pub async fn search(query: &str, kind: &str, key: &str) -> Result<Movie> {
-    let kind = match kind {
-        "movie" => omdb::Kind::Movie,
-        "series" => omdb::Kind::Series,
-        _ => return Err(anyhow!("Unknown type")),
+    let mut search = omdb::title(query);
+    match kind {
+        "Movie" => search.kind(Kind::Movie),
+        "Series" => search.kind(Kind::Series),
+        "Episode" => search.kind(Kind::Episode),
+        "Game" => search.kind(Kind::Game),
+        _ => &search,
     };
-
-    let movie = omdb::title(query).apikey(key).kind(kind).get().await?;
-
-    Ok(movie.into())
+    Ok(search.apikey(key).get().await?.into())
 }

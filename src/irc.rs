@@ -217,34 +217,45 @@ impl IrcTask {
                                 }
 
                                 if content.starts_with(&config.command.prefix) {
-                                    let command = &content[config.command.prefix.len()..].split_whitespace().collect::<Vec<&str>>();
-                                    if command.len() > 1 {
-                                        let search = itertools::join(command[1..].iter(), " ");
-                                        match &command[0].to_lowercase()[..] {
-                                            "film" | "movie" if config.omdb.api_key.is_some() => {
-                                                let cmd = BotCommand::Omdb("movie".to_string(), search.clone());
-                                                info!(self.log, "omdb"; "kind" => "film", "search" => search, "channel" => %target, "source" => %nick);
-                                                self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
+                                    let split = &mut content[config.command.prefix.len()..].split_ascii_whitespace();
+                                    let command = split.next().unwrap_or_default().to_lowercase().to_string();
+                                    let args = itertools::join(split, " ");
+                                    if !command.is_empty() && !args.is_empty() {
+                                        if config.omdb.api_key.is_some() {
+                                            let kind = match &command[..] {
+                                                "imdb" | "omdb" => Some("Any"),
+                                                "film" | "movie" => Some("Movie"),
+                                                "show" | "series" | "tv" => Some("Series"),
+                                                "ep" | "episode" => Some("Episode"),
+                                                "game" => Some("Game"),
+                                                _ => None,
+                                            };
+
+                                            if let Some(kind) = kind {
+                                                if limiter.check_key(&target.clone()).is_err() {
+                                                    warn!(self.log, "ratelimit"; "channel" => target, "source" => nick);
+                                                    continue;
+                                                }
+
+                                                info!(self.log, "omdb"; "kind" => kind, "search" => &args, "channel" => %target, "source" => %nick);
+                                                self.command(BotCommand::Omdb(kind, args.clone()), target.clone(), client.sender()).map(|fut| pending.push(fut));
                                                 continue;
                                             }
-                                            "show" | "series" | "tv" if config.omdb.api_key.is_some() => {
-                                                let cmd = BotCommand::Omdb("series".to_string(), search.clone());
-                                                info!(self.log, "omdb"; "kind" => "series", "search" => search, "channel" => %target, "source" => %nick);
-                                                self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
+                                        }
+                                        if config.wolfram.app_id.is_some() && matches!(&command[..], "wolfram" | "calc") {
+                                            if limiter.check_key(&target.clone()).is_err() {
+                                                warn!(self.log, "ratelimit"; "channel" => target, "source" => nick);
                                                 continue;
                                             }
-                                            "wolfram" | "calc" if config.wolfram.app_id.is_some() => {
-                                                let cmd = BotCommand::Wolfram(search.clone());
-                                                info!(self.log, "wolfram"; "query" => search, "channel" => %target, "source" => %nick);
-                                                self.command(cmd, target.clone(), client.sender()).map(|fut| pending.push(fut));
-                                                continue;
-                                            }
-                                            _ => {}
+
+                                            info!(self.log, "wolfram"; "query" => &args, "channel" => %target, "source" => %nick);
+                                            self.command(BotCommand::Wolfram(args.clone()), target.clone(), client.sender()).map(|fut| pending.push(fut));
+                                            continue;
                                         }
                                     }
                                 }
 
-                                for url in url_entities(&content)
+                                for url in url_entities(content)
                                     .into_iter()
                                     .filter(|url| !config.url.ignore_url_regex.is_match(url.substr(content)))
                                     .filter_map(|url| parse_url(url.substr(content), config.url.scheme_required).ok())
@@ -450,7 +461,7 @@ fn format_youtube(item: &YouTube) -> String {
         channel = item.channel.trunc(16),
         views = item.views.to_formatted_string(&Locale::en),
         likes = item.likes.to_formatted_string(&Locale::en),
-        date = item.published_at.map(|d| d.format(" @ %Y-%m-%d").to_string()).unwrap_or_default(),
+        date = item.published_at.map(|d| d.format(" @ %F").to_string()).unwrap_or_default(),
         duration = duration,
     )
 }

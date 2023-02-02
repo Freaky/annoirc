@@ -373,17 +373,16 @@ fn display_response(
 
 fn format_movie(movie: &Movie) -> String {
     format!(
-        "[\x0303{}\x0f] \x0304{}\x0f ({}) [{}/10 with {} votes, Metascore: {}] [{}] [{}] \x0303{}\x0f - \x0300\x02\x02{}\x0f",
-        "IMDB",
-        movie.title.trunc(30),
-        movie.released,
-        movie.imdb_rating,
-        movie.imdb_votes,
-        movie.metascore,
-        movie.rated,
-        movie.genre,
-        format!("https://www.imdb.com/title/{}", movie.imdb_id),
-        movie.plot,
+        "[\x0303IMDB\x0f] \x0304{title}\x0f ({released}) [{rating}/10 with {votes} votes, Metascore: {metascore}] [{rated}] [{genre}] \x0303https://www.imdb.com/title/{imdb_id}\x0f - \x0300\x02\x02{plot}\x0f",
+        title = movie.title.trunc(30),
+        released = movie.released,
+        rating = movie.imdb_rating,
+        votes = movie.imdb_votes,
+        metascore = movie.metascore,
+        rated = movie.rated,
+        genre = movie.genre,
+        imdb_id = movie.imdb_id,
+        plot = movie.plot,
     )
 }
 

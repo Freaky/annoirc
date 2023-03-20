@@ -73,8 +73,9 @@ impl From<YouTubeItem> for YouTube {
             description: y.snippet.localized.description.into(),
             channel: y.snippet.channel_title.into(),
             published_at: DateTime::parse_from_rfc3339(&y.snippet.published_at).ok(),
-            duration: IsoDuration::parse(&y.content_details.duration)
-                .map(|d| d.to_std())
+            duration: y.content_details.duration.parse::<IsoDuration>()
+                .ok()
+                .and_then(|d| d.to_std())
                 .unwrap_or_default(),
             views: y.statistics.view_count.parse().unwrap_or_default(),
             likes: y.statistics.like_count.parse().unwrap_or_default(),

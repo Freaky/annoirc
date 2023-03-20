@@ -25,7 +25,7 @@ mime = "0.3.16"
 nonzero_ext = "0.3.0"
 regex = "1.4.2"
 reqwest = { version = "0.11", features = ["brotli", "cookies", "gzip", "json", "rustls-tls", "rustls-tls-webpki-roots"], default-features = false }
-scraper = "0.13.0"
+scraper = "0.15.0"
 serde = "1.0.117"
 serde_json = "1.0.59"
 slog = "2.7"
@@ -33,9 +33,14 @@ slog-async = "2.5.0"
 slog-term = "2.6.0"
 tokio = { version = "1.0", features = ["fs", "macros", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1.1", features = ["time", "net"] }
-toml = "0.5.7"
+toml = "0.7"
 unicode-segmentation = "1.7.0"
 url = "2.2"
 omdb = "0.3.2"
-iso8601-duration = "0.1.0"
+iso8601-duration = "0.2.0"
 num-format = "0.4.3"
+html2text = "0.4.5"
+
+[profile.release]
+opt-level = "s"
+lto = "thin"

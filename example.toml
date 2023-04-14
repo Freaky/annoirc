@@ -43,10 +43,6 @@ accept_language = "en,*;q=0.5"
 ## Use single quotes to avoid needing to double-escape the backslash
 ignore_url_regex = ['imgur\.com/']
 
-[twitter]
-## Apply for API access at https://developer.twitter.com/
-# bearer_token = "..."
-
 [omdb]
 ## Apply for API access at https://www.omdbapi.com/apikey.aspx
 # api_key = "..."

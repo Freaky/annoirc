@@ -14,7 +14,7 @@ use tokio_stream::StreamExt;
 use url::Url;
 
 use crate::{
-    command::*, config::*, irc_string::*, omdb::Movie, twitter::*, wolfram::WolframPod, youtube::*,
+    command::*, config::*, irc_string::*, omdb::Movie, wolfram::WolframPod, youtube::*,
 };
 
 #[derive(Debug)]
@@ -340,21 +340,6 @@ fn display_response(
                 )?;
             }
         }
-        Info::Tweet(tweet) => {
-            sender.send_privmsg(target, format_tweet(tweet, "Twitter"))?;
-            if let Some(quote) = &tweet.quote {
-                sender.send_privmsg(target, format_tweet(quote, "Retweet"))?;
-            }
-            if let Some(retweet) = &tweet.retweet {
-                sender.send_privmsg(target, format_tweet(retweet, "Retweet"))?;
-            }
-        }
-        Info::Tweeter(user) => {
-            sender.send_privmsg(target, format_tweeter(user))?;
-            if let Some(tweet) = &user.status {
-                sender.send_privmsg(target, format_tweet(tweet, " Status"))?;
-            }
-        }
         Info::Movie(movie) => {
             sender.send_privmsg(target, format_movie(movie))?;
         }
@@ -383,61 +368,6 @@ fn format_movie(movie: &Movie) -> String {
         genre = movie.genre,
         imdb_id = movie.imdb_id,
         plot = movie.plot,
-    )
-}
-
-fn format_tweet(tweet: &Tweet, tag: &str) -> String {
-    // not included if retrieved from a user status field
-    if let Some(user) = &tweet.user {
-        format!(
-            "[\x0303{}\x0f] \x0304\x02\x02{}\x0f{} (@{}) \x0300\x02\x02{}\x0f | {} {}",
-            tag,
-            user.name.trunc(30),
-            if user.verified { "✓" } else { "" },
-            user.screen_name.trunc(30),
-            tweet.text.trunc(300),
-            if tweet.favourite_count == 0 {
-                "".to_string()
-            } else {
-                format!(
-                    "❤️{}",
-                    tweet.favourite_count.to_formatted_string(&Locale::en)
-                )
-            },
-            tweet.created_at.format("%F %H:%M")
-        )
-    } else {
-        format!(
-            "[\x0303{}\x0f] \x0300\x02\x02{}\x0f | {} {}",
-            tag,
-            tweet.text.trunc(300),
-            if tweet.favourite_count == 0 {
-                "".to_string()
-            } else {
-                format!(
-                    "❤️{}",
-                    tweet.favourite_count.to_formatted_string(&Locale::en)
-                )
-            },
-            tweet.created_at.format("%F %H:%M")
-        )
-    }
-}
-
-fn format_tweeter(user: &Tweeter) -> String {
-    format!(
-        "[\x0303Twitter\x0f] \x0304\x02\x02{}\x0f{} (@{}) {} Tweets, {} Followers, {}{}",
-        user.name.trunc(30),
-        if user.verified { "✓" } else { "" },
-        user.screen_name.trunc(30),
-        user.statuses_count.to_formatted_string(&Locale::en),
-        user.followers_count.to_formatted_string(&Locale::en),
-        if let Some(ref desc) = user.description {
-            format!("\"\x0300\x02\x02{}\x0f\", ", desc.trunc(300))
-        } else {
-            "".to_string()
-        },
-        user.created_at.format("%F %H:%M")
     )
 }
 

@@ -11,7 +11,6 @@ mod config;
 mod irc;
 mod irc_string;
 mod omdb;
-mod twitter;
 mod wolfram;
 mod youtube;
 

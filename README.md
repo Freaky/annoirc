@@ -10,7 +10,7 @@ A simple, efficient IRC bot for annotating Internet Relay Chat conversations.
 to help enhance the Chat Experience™.  This includes:
 
 * Title text and meta descriptions of websites.
-* Dedicated handling for IMDB, Twitter, YouTube, WolframAlpha, and Wikipedia.
+* Dedicated handling for OMDB, YouTube, WolframAlpha, and Wikipedia.
 * Pretty colours.
 * Other stuff at some point.
 

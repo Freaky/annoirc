@@ -19,7 +19,7 @@ use slog::{info, o, Logger};
 use tokio::time::timeout;
 use url::Url;
 
-use crate::{config::*, irc_string::*, omdb, twitter::*, wolfram::*, youtube::*};
+use crate::{config::*, irc_string::*, omdb, wolfram::*, youtube::*};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UrlInfo {
@@ -39,8 +39,6 @@ pub enum BotCommand {
 #[derive(Clone, Debug)]
 pub enum Info {
     Url(UrlInfo),
-    Tweet(Tweet),
-    Tweeter(Tweeter),
     Movie(omdb::Movie),
     YouTube(YouTube),
     Wolfram(Vec<WolframPod>),
@@ -60,7 +58,6 @@ pub struct CommandHandler {
     log: Logger,
     config: ConfigMonitor,
     client: reqwest::Client,
-    twitter: TwitterHandler,
     queue: mpsc::Sender<Work>,
     cache: Arc<Mutex<LruCache<BotCommand, Response>>>,
 }
@@ -80,7 +77,6 @@ impl std::fmt::Debug for CommandHandler {
         f.debug_struct("CommandHandler")
             .field("config", &self.config)
             .field("client", &self.client)
-            .field("twitter", &self.twitter)
             .field(
                 "cache",
                 &format!("{} entires", self.cache.lock().unwrap().len()),
@@ -102,7 +98,6 @@ impl CommandHandler {
         let (queue, queue_rx) = mpsc::channel(64);
         let handler = Self {
             log,
-            twitter: TwitterHandler::new(config.clone()),
             config,
             client: reqwest::ClientBuilder::new()
                 .cookie_store(true)
@@ -209,20 +204,6 @@ impl CommandHandler {
 
     async fn handle_url(&self, url: &Url) -> Result<Info> {
         let config = self.config.current();
-        if config.twitter.bearer_token.is_some() {
-            if let Some("twitter.com") = url.host_str() {
-                if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {
-                    if path.len() == 1 || path.len() == 2 && path[1].is_empty() {
-                        return self.twitter.fetch_tweeter(path[0]).await.map(Info::Tweeter);
-                    } else if path.len() == 3 && path[1] == "status" {
-                        if let Ok(id) = path[2].parse::<u64>() {
-                            return self.twitter.fetch_tweet(id).await.map(Info::Tweet);
-                        }
-                    }
-                }
-            }
-        }
-
         if let Some(key) = &config.omdb.api_key {
             if let Some("www.imdb.com") = url.host_str() {
                 if let Some(path) = url.path_segments().map(|c| c.collect::<Vec<_>>()) {

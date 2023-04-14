@@ -10,7 +10,6 @@ edition = "2018"
 anyhow = "1.0.34"
 chrono = "0.4.19"
 clap = { version = "4", features = ["derive"] }
-egg-mode = { version = "0.16.0", features = ["rustls"], default-features = false }
 egg-mode-text = "1.15.0"
 futures = "0.3.8"
 governor = "0.5"
@@ -39,7 +38,6 @@ url = "2.2"
 omdb = "0.3.2"
 iso8601-duration = "0.2.0"
 num-format = "0.4.3"
-html2text = "0.4.5"
 
 [profile.release]
 opt-level = "s"

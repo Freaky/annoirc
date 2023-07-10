@@ -410,7 +410,12 @@ fn format_wolfram(pods: &[WolframPod]) -> Vec<String> {
 
 fn parse_url(text: &str, scheme_required: bool) -> Result<Url, url::ParseError> {
     match Url::parse(text) {
-        Ok(url) => Ok(url),
+        Ok(mut url) => {
+            if let Some("twitter.com") = url.host_str() {
+                let _ = url.set_host(Some("uk.unofficialbird.com"));
+            }
+            Ok(url)
+        },
         Err(url::ParseError::RelativeUrlWithoutBase) if !scheme_required => {
             Url::parse(&format!("http://{}", text))
         }

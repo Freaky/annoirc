@@ -378,7 +378,7 @@ fn format_youtube(item: &YouTube) -> String {
     let hours = (duration.as_secs() / 60) / 60;
 
     let duration = if hours > 0 {
-        format!("{}:{}:{:02}", hours, minutes, seconds)
+        format!("{}:{:02}:{:02}", hours, minutes, seconds)
     } else {
         format!("{}:{:02}", minutes, seconds)
     };

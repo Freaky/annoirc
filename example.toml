@@ -15,6 +15,9 @@ cache_entries = 256
 
 # Settings for URL handling
 [url]
+## Specify if http(s) scheme is required for url parsing
+scheme_required = true
+
 ## Maximum URLs to process per PRIVMSG
 max_per_message = 3
 

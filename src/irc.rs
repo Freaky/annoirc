@@ -143,17 +143,18 @@ impl IrcTask {
 
         let netconf = netconf.unwrap().clone();
 
-        warn!(self.log, "connect"; "server" => &netconf.server, "port" => &netconf.port);
+        warn!(self.log, "connect"; "server" => &netconf.irc.server, "port" => &netconf.irc.port);
 
         let mut shutdown = false;
 
-        let mut client = Client::from_config(netconf.clone()).await?;
+        let mut client = Client::from_config(netconf.irc.clone()).await?;
         client.identify()?;
 
         let mut stream = client.stream()?;
         let mut pending = FuturesUnordered::new();
         let quota = Quota::per_minute(nonzero!(10u32)); // Max of 10 per minute per channel
         let limiter = RateLimiter::keyed(quota);
+        let mut nick_check = tokio::time::interval(Duration::from_secs(netconf.nick_check_secs));
 
         loop {
             tokio::select! {
@@ -162,7 +163,7 @@ impl IrcTask {
                     if let Some(newconf) = newconf {
                         config = newconf;
                         if let Some(new_netconf) = config.network.get(&self.name) {
-                            if *new_netconf != netconf {
+                            if new_netconf.irc != netconf.irc {
                                 warn!(self.log, "reconnecting");
                                 client.send_quit("Reconnecting")?;
                             }
@@ -175,6 +176,15 @@ impl IrcTask {
                         shutdown = true;
                         warn!(self.log, "disconnecting");
                         client.send_quit("Disconnecting")?;
+                    }
+                },
+                _ = nick_check.tick(), if !shutdown => {
+                    if let Some(nickname) = netconf.irc.nickname.as_ref() {
+                        let current = client.current_nickname();
+                        if netconf.irc.alt_nicks.iter().any(|alt| alt == current) {
+                            warn!(self.log, "recovering nickname"; "current" => current, "target" => nickname);
+                            client.send(Command::NICK(nickname.to_owned()))?;
+                        }
                     }
                 },
                 Some(fut) = pending.next() => { let _ = fut; /* probably cancelled by a concurrency change */ },
@@ -201,7 +211,7 @@ impl IrcTask {
                                 }
                             }
                         }
-                        Command::INVITE(target, channel) if target == client.current_nickname() && netconf.channels.contains(channel) => {
+                        Command::INVITE(target, channel) if target == client.current_nickname() && netconf.irc.channels.contains(channel) => {
                             warn!(self.log, "invited"; "channel" => channel, "source" => message_source(&message));
                             // TODO: channel keys
                             client.send_join(channel)?;
@@ -212,7 +222,7 @@ impl IrcTask {
                         Command::PRIVMSG(target, content) => {
                             if let Some(Prefix::Nickname(nick, _, _)) = &message.prefix {
                                 // Avoid responding to ourselves, CTCPs, coloured text (usually other bots), and any target we're not configured for
-                                if nick == client.current_nickname() || content.starts_with('\x01') || content.contains('\x03') || !netconf.channels.contains(target) {
+                                if nick == client.current_nickname() || content.starts_with('\x01') || content.contains('\x03') || !netconf.irc.channels.contains(target) {
                                     continue;
                                 }
 

@@ -99,7 +99,7 @@ pub fn extract_youtube_id(url: &Url) -> Option<String> {
     match url.domain()? {
         "youtu.be" => maybe_id(url.path_segments()?.next()?),
         "www.youtube.com" | "youtube.com" => match url.path_segments()?.next()? {
-            "shorts" | "embed" => maybe_id(url.path_segments()?.nth(1)?),
+            "shorts" | "embed" | "live" => maybe_id(url.path_segments()?.nth(1)?),
             "watch" => url
                 .query_pairs()
                 .find(|(key, _)| key == "v")
@@ -147,6 +147,10 @@ fn test_extract_youtube_id() {
     assert_eq!(
         extract_youtube_id(&Url::parse("https://youtube/a123456789Z").unwrap()),
         None
+    );
+    assert_eq!(
+        extract_youtube_id(&Url::parse("https://www.youtube.com/live/3cJLBcsdx3I").unwrap()),
+        Some("3cJLBcsdx3I".to_string())
     );
 }
 

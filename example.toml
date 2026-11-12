@@ -63,6 +63,7 @@ ignore_url_regex = ['imgur\.com/']
 [network.example]
 nickname = "annobot"
 alt_nicks = ["annobot_", "annobot__"]
+nick_check_secs = 300
 username = "annobot"
 realname = "Annoying Annotating Bot"
 user_info = "Blame me on Freaky"

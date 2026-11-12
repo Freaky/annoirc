@@ -30,7 +30,24 @@ pub struct BotConfig {
     pub youtube: YouTubeConfig,
     pub wolfram: WolframConfig,
     pub defaults: Config,
-    pub network: HashMap<String, Config>,
+    pub network: HashMap<String, NetworkConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct NetworkConfig {
+    #[serde(flatten)]
+    pub irc: Config,
+    pub nick_check_secs: u64,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            irc: Config::default(),
+            nick_check_secs: 300,
+        }
+    }
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]
